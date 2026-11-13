@@ -7,6 +7,8 @@ const MODEL = "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b";
 const TURN_CAP = 7;
 // R1 reasons in <think>…</think> before answering, so it needs room for both. The browser hides the reasoning.
 const MAX_TOKENS = 4096;
+// Reasoning models get their instructions in the user message, not a system prompt (see inUserMessages).
+const REASONING_MODEL = /deepseek-r1|qwq/i.test(MODEL);
 const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
 const SSE_HEADERS = {
@@ -49,7 +51,8 @@ async function turn(request, env) {
     return sseError("turn_cap", `This session has used all ${TURN_CAP} turns. Start a new session to keep going.`, 409);
   }
 
-  const messages = [{ role: "system", content: systemPrompt(command, history[0].content, turnNo) }, ...history];
+  const instructions = systemPrompt(command, history[0].content, turnNo);
+  const messages = REASONING_MODEL ? inUserMessages(instructions, command, history, turnNo) : [{ role: "system", content: instructions }, ...history];
 
   let stream;
   try {
@@ -62,16 +65,32 @@ async function turn(request, env) {
   return new Response(stream, { headers: SSE_HEADERS });
 }
 
-// Command body (frontmatter already stripped, $ARGUMENTS filled) + the Turn cap note.
+// DeepSeek R1 models follow a system prompt weakly; DeepSeek advises putting every instruction in the
+// user message. So for them: the instructions open the first user message, and the latest user message
+// carries a reminder of the turn pacing (the first message's copy is far back by then).
+function inUserMessages(instructions, command, history, turnNo) {
+  const msgs = history.map((m) => ({ ...m }));
+  msgs[0].content = `${instructions}\n\n---\n\n## The user's message\n\n${msgs[0].content}`;
+  if (msgs.length > 1) {
+    const last = msgs[msgs.length - 1];
+    last.content = `${last.content}\n\n(Session note: ${pacingNote(turnNo)} Keep following the /${command.name} format from the first message.)`;
+  }
+  return msgs;
+}
+
+function pacingNote(turnNo) {
+  const remaining = TURN_CAP - turnNo;
+  return turnNo === TURN_CAP
+    ? `This is the FINAL turn (${turnNo} of ${TURN_CAP}). Conclude now: deliver the command's final result / conclusion for the user's idea in full, as something they can copy and keep. Do not ask further questions.`
+    : turnNo === TURN_CAP - 1
+      ? `This is turn ${turnNo} of ${TURN_CAP}. One turn remains after this, so start steering toward the conclusion.`
+      : `This is turn ${turnNo} of ${TURN_CAP} (${remaining} remaining). Pace the session so it reaches a real conclusion by turn ${TURN_CAP}.`;
+}
+
+// Command body (frontmatter already stripped, $ARGUMENTS filled) + how the session runs.
 function systemPrompt(command, firstPrompt, turnNo) {
   const body = command.body.replaceAll("$ARGUMENTS", firstPrompt);
-  const remaining = TURN_CAP - turnNo;
-  const pacing =
-    turnNo === TURN_CAP
-      ? `This is the FINAL turn (${turnNo} of ${TURN_CAP}). Conclude now: deliver the command's final result / conclusion for the user's idea in full, as something they can copy and keep. Do not ask further questions.`
-      : turnNo === TURN_CAP - 1
-        ? `This is turn ${turnNo} of ${TURN_CAP}. One turn remains after this, so start steering toward the conclusion.`
-        : `This is turn ${turnNo} of ${TURN_CAP} (${remaining} remaining). Pace the session so it reaches a real conclusion by turn ${TURN_CAP}.`;
+  const pacing = pacingNote(turnNo);
 
   return `${body}
 
