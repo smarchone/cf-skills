@@ -35,3 +35,27 @@ Why: interactive showcase of my skills is valueable
 
 - product.md: mid-session / shows a new-session hint instead of the picker
 - model.md: Session's Command is locked in the UI and enforced by the Worker
+
+## M2 · there were some cosmetic changes done so far. · committed 2026-11-13
+
+Why: adding simple claude api
+
+**Decided**
+
+- Claude via the Anthropic Messages API, called directly from the Worker with the owner key as a secret, added alongside Workers AI
+- Model picked in the existing dropdown before a Session and locked for it; Claude is the default
+- Owner pays and promotes the app; a low credit balance on the key is the only spend ceiling
+- Claude Budget out tells the user to start a new Session on Workers AI or come back later
+
+**Ruled out**
+
+- Managed Agents: native skills not worth a second backend path, sandbox cold start and moving Sessions off the browser
+- AI Gateway / Unified Billing: unnecessary hop; base-URL change later if logs or $ limits are wanted
+- KV per-IP turn quota: owner chose simplicity over a stranger-drain guardrail
+- Automatic fallback from Claude to Workers AI mid-Session: the voice would change before turn 7
+
+**Context**
+
+- business.md: promoted beyond friends; Claude is the one paid service, capped by a low credit balance; open endpoint is now the top risk
+- product.md: dropdown offers Claude (default Haiku 5.5, assumed) and Workers AI, locked per Session; header shows the model
+- model.md: new Model term behind one Worker seam; Budget is per Model kind with distinct out messages

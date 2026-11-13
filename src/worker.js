@@ -45,8 +45,11 @@ for (const id of [DEFAULT_CLAUDE_MODEL, DEFAULT_WORKERS_AI_MODEL]) if (!MODELS[i
 const kindOf = (profile) => profile.kind || "workers-ai";
 // Claude needs the owner's key (or the local mock); without it only Workers AI is offered.
 const claudeReady = (env) => !!(env.ANTHROPIC_API_KEY || env.MOCK_AI);
+// Workers AI needs the AI binding (on Cloudflare) or its REST stand-in (server/server.mjs, with a Cloudflare token).
+const workersAiReady = (env) => !!(env.AI || env.MOCK_AI);
+const ready = (env, kind) => (kind === "claude" ? claudeReady(env) : workersAiReady(env));
 const modelList = (env) => Object.entries(MODELS)
-  .filter(([, p]) => kindOf(p) !== "claude" || claudeReady(env))
+  .filter(([, p]) => ready(env, kindOf(p)))
   .map(([id, p]) => ({ id, label: p.label, kind: kindOf(p), inlineThinking: !!p.inlineThinking, verified: !!p.verified }));
 const defaultModel = (env) => (claudeReady(env) ? DEFAULT_CLAUDE_MODEL : DEFAULT_WORKERS_AI_MODEL);
 const TURN_CAP = 7;
@@ -97,8 +100,10 @@ async function turn(request, env) {
   const profile = MODELS[model];
   if (!profile) return sseError("bad_request", `Unknown model "${model}".`, 400);
   const kind = kindOf(profile);
-  if (kind === "claude" && !claudeReady(env)) {
-    return sseError("bad_request", "Claude isn't set up on this server. Start a new session on a Workers AI model.", 400);
+  if (!ready(env, kind)) {
+    return sseError("bad_request", kind === "claude"
+      ? "Claude isn't set up on this server. Start a new session on a Workers AI model."
+      : "Workers AI isn't set up on this server. Start a new session on a Claude model.", 400);
   }
 
   const instructions = systemPrompt(command, history[0].content, turnNo);

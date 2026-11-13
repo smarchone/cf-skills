@@ -25,3 +25,25 @@ npm run deploy      # → https://skills.<you>.workers.dev
 ```
 
 To add a Command: drop its `.md` into `commands/` and add an import line in `src/commands.js`.
+
+## Run off Cloudflare (any server)
+
+`server/server.mjs` runs the same `src/worker.js` on plain Node (22+, no extra dependencies). It stands in
+for what Cloudflare provides: the runtime (node:http ↔ `fetch(request, env)`), static assets (`public/`),
+the Workers AI binding (its REST API, with a Cloudflare token) and the `.md` text imports (`server/md-text.mjs`).
+
+```sh
+cat > .env <<'ENV'          # gitignored; set either kind, or both
+ANTHROPIC_API_KEY=sk-ant-...
+CF_ACCOUNT_ID=...           # Workers AI models (still the free daily allowance)
+CF_API_TOKEN=...            # token with "Workers AI: Read"
+ENV
+npm start                   # → http://localhost:8787 (PORT to change)
+npm run start:mock          # fake replies, no keys
+
+docker build -t skills . && docker run -p 8787:8787 --env-file .env skills
+```
+
+Only the Models with credentials are offered. Put it behind a TLS proxy (Caddy, nginx) that doesn't buffer
+`text/event-stream` responses and allows long idle times, so replies stream token by token.
+

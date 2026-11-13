@@ -5,12 +5,17 @@
   "scripts": {
     "dev": "wrangler dev",
     "dev:mock": "wrangler dev --env mock",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "start": "node --env-file-if-exists=.env --import ./server/md-text.mjs server/server.mjs",
+    "start:mock": "MOCK_AI=1 node --import ./server/md-text.mjs server/server.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.40.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
