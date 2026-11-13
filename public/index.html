@@ -91,6 +91,9 @@ svg { display: block; flex: none; }
 /* ---------- Start ---------- */
 .start { max-width: 720px; margin: 0 auto; padding: 0 28px 40px; min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
 .start h2 { font-size: 30px; letter-spacing: -.02em; margin: 0; line-height: 1.2; }
+.start h2 .gh-h { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
+.start h2 .gh-h svg { flex: none; position: relative; top: 1px; }
+.start h2 .gh-h:hover { color: var(--accent); }
 .start p { margin: -8px 0 0; color: var(--ink-2); }
 .start kbd { font-family: var(--mono); font-size: 12.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--panel); color: var(--ink); }
 .ex-head { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin: 10px 0 -8px; }
@@ -157,9 +160,12 @@ svg { display: block; flex: none; }
 .start .composer { box-shadow: var(--shadow); }
 .composer textarea { display: block; width: 100%; resize: none; border: 0; outline: none; background: transparent; padding: 9px 6px 6px; min-height: 24px; max-height: 40vh; overflow-y: auto; line-height: 1.5; color: var(--ink); font-size: 15px; }
 .start .composer textarea { font-size: 15.5px; padding-top: 11px; }
+.start .chip { top: 10px; }
 .composer textarea::placeholder { color: var(--ink-3); }
 .composer-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; padding-left: 4px; }
-.chip { display: none; align-items: center; gap: 2px; font-family: var(--mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 3px 2px 8px; line-height: 20px; }
+.field { position: relative; }
+/* The chosen command sits at the start of the text, like the first word; text flows after it. */
+.chip { position: absolute; left: 6px; top: 8px; z-index: 1; display: none; align-items: center; gap: 2px; font-family: var(--mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 3px 2px 8px; line-height: 20px; }
 .chip.on { display: inline-flex; }
 .chip button { border: 0; background: none; color: var(--accent); opacity: .6; cursor: pointer; width: 18px; height: 18px; border-radius: 4px; line-height: 1; font-size: 14px; padding: 0; }
 .chip button:hover { opacity: 1; background: rgba(170,180,255,.12); }
@@ -234,7 +240,7 @@ svg { display: block; flex: none; }
   <section class="pane">
     <div class="body" id="scroll">
       <div class="start" id="start">
-        <h2>Think it through with a command.</h2>
+        <h2>Try <a class="gh-h" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="smarchone/skills on GitHub"><svg width="26" height="26" aria-hidden="true"><use href="#gh"/></svg>@smarchone</a> skills</h2>
         <p>Type <kbd>/</kbd> to pick a command. Seven turns, then it concludes.</p>
         <div id="startSlot"></div>
         <div class="ex-head">Try</div>
@@ -255,9 +261,11 @@ svg { display: block; flex: none; }
 <!-- One composer, moved between the start page and the dock -->
 <div id="composerHost">
   <div class="composer" id="box">
-    <textarea id="input" rows="1" placeholder="/command  your idea or question"></textarea>
-    <div class="composer-bar">
+    <div class="field">
       <span class="chip" id="chip"><span id="chipName"></span><button id="chipClear" type="button" title="Change command" aria-label="Change command">×</button></span>
+      <textarea id="input" rows="1" placeholder="/command  your idea or question"></textarea>
+    </div>
+    <div class="composer-bar">
       <span class="grow"></span>
       <button class="send" id="sendBtn" type="button" title="Send (↵)" aria-label="Send" disabled>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
@@ -472,6 +480,7 @@ function renderComposer(s) {
 
   els.chip.classList.toggle("on", !s && !!state.pendingCommand);
   els.chipName.textContent = state.pendingCommand ? "/" + state.pendingCommand : "";
+  els.input.style.textIndent = els.chip.classList.contains("on") ? (els.chip.offsetWidth + 6) + "px" : "";
   els.input.disabled = state.streaming;
   if (s) els.input.placeholder = state.streaming ? `/${s.command} is answering` : `Reply to /${s.command}`;
   else if (state.pendingCommand) els.input.placeholder = cmdInfo(state.pendingCommand)?.hint || "Your idea or question";
