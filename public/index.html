@@ -57,8 +57,12 @@ body:not(.landing) header { border-bottom: 1px solid var(--line); }
 #hdrCmd { font-family: var(--mono); font-size: 12.5px; color: var(--accent); }
 #hdrTitle { flex: 1; min-width: 0; color: var(--muted); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #hdrTurn { font-family: var(--mono); font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.gh { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 11px; border: 1px solid var(--line-2); border-radius: 7px; color: var(--text); text-decoration: none; font-size: 13px; font-weight: 500; transition: background .12s, border-color .12s; }
-.gh:hover { background: var(--panel-2); border-color: #3a3e48; }
+.gh { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 13px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; color: var(--text); text-decoration: none; font-size: 13.5px; font-weight: 500; transition: background .12s, border-color .12s; }
+.gh:hover { background: #20232b; border-color: #3d414c; }
+footer { flex: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px 14px; font-size: 12.5px; color: var(--faint); }
+footer a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--text); }
+footer .heart { color: #e06c75; }
 
 #scroll { flex: 1; overflow-y: auto; }
 #thread { max-width: 700px; margin: 0 auto; padding: 36px 24px 48px; }
@@ -96,7 +100,7 @@ body:not(.landing) header { border-bottom: 1px solid var(--line); }
 .btn.primary:hover { background: #fff; }
 
 /* Composer */
-#composerWrap { flex: none; padding: 0 24px 20px; }
+#composerWrap { flex: none; padding: 0 24px 10px; }
 #composer { position: relative; max-width: 700px; width: 100%; margin: 0 auto; }
 #box { position: relative; display: flex; align-items: flex-end; gap: 8px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; padding: 11px 11px 11px 15px; transition: border-color .15s, box-shadow .15s; }
 #box:focus-within { border-color: #3a3e48; box-shadow: 0 0 0 3px rgba(255,255,255,.025); }
@@ -122,7 +126,7 @@ body:not(.landing) header { border-bottom: 1px solid var(--line); }
 #landingHead { display: none; }
 body.landing #scroll { display: none; }
 body.landing #composerWrap { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-bottom: 16vh; }
-body.landing #landingHead { display: block; max-width: 700px; width: 100%; margin: 0 auto 20px; padding: 0 2px; }
+body.landing #landingHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; max-width: 700px; width: 100%; margin: 0 auto 20px; padding: 0 2px; }
 #landingHead h1 { margin: 0; color: var(--text); font-size: 21px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; }
 #landingHead p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
 #landingHead kbd { font-family: var(--mono); font-size: 12px; color: var(--text); border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
@@ -139,12 +143,14 @@ body.landing #examples { display: block; }
   body.side-open #sidebar { position: fixed; inset: 0 auto 0 0; z-index: 10; box-shadow: 0 0 40px rgba(0,0,0,.6); }
   #thread { padding: 24px 16px 32px; }
   #composerWrap { padding: 0 16px 14px; }
-  #hdrTitle, .gh .repo { display: none; }
+  #hdrTitle { display: none; }
+  body.landing #landingHead { flex-direction: column; align-items: flex-start; }
   .ex { grid-template-columns: 1fr; gap: 0; }
 }
 </style>
 </head>
 <body class="landing">
+<svg width="0" height="0" style="position:absolute"><symbol id="gh" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol></svg>
 <aside id="sidebar">
   <div id="sidebarInner">
     <div class="side-head">
@@ -168,16 +174,17 @@ body.landing #examples { display: block; }
     <button id="copyBtn" class="icon-btn" title="Copy as markdown" aria-label="Copy as markdown" hidden>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="8.5" height="8.5" rx="1.5"/><path d="M3 10.5V3.8C3 3.4 3.4 3 3.8 3h6.7"/></svg>
     </button>
-    <a class="gh" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="Commands source on GitHub">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      <span class="repo">smarchone/skills</span>
-    </a>
   </header>
   <div id="scroll"><div id="thread"></div></div>
   <div id="composerWrap">
     <div id="landingHead">
-      <h1>Think it through with a command.</h1>
-      <p>Type <kbd>/</kbd> to pick a command. Seven turns, then it concludes.</p>
+      <div>
+        <h1>Think it through with a command.</h1>
+        <p>Type <kbd>/</kbd> to pick a command. Seven turns, then it concludes.</p>
+      </div>
+      <a class="gh" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="The commands on GitHub">
+        <svg width="16" height="16" aria-hidden="true"><use href="#gh"/></svg><span>smarchone/skills</span>
+      </a>
     </div>
     <div id="composer">
       <div id="box">
@@ -192,6 +199,10 @@ body.landing #examples { display: block; }
       <div id="examples"></div>
     </div>
   </div>
+  <footer>
+    Made with <span class="heart" aria-label="love">♥</span> ·
+    <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13" aria-hidden="true"><use href="#gh"/></svg>smarchone/skills</a>
+  </footer>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
@@ -202,19 +213,13 @@ const STORE_KEY = "simple-skills.sessions";
 const CURRENT_KEY = "simple-skills.current";
 const GITHUB = "https://github.com/smarchone/skills";
 
-// Starting points for engineers: [command, label, text to prefill]. Clicking fills the composer; nothing is sent.
+// Starting points for engineers: [command, text]. Clicking fills the composer; nothing is sent.
 const EXAMPLES = [
-  ["chatxy", "a principal engineer at Netflix · migrating our monolith's auth to a service · system design interview"],
-  ["chatxy", "a skeptical VP of Engineering · moving our ingestion pipeline from Python to Rust · 1:1 pitch"],
-  ["chatxy", "a staff SRE · my first postmortem as incident commander · mentoring"],
-  ["few-shot", "Raft leader election"],
-  ["few-shot", "Postgres MVCC and vacuum"],
-  ["few-shot", "CRDTs for collaborative editing"],
-  ["few-shot", "backpressure in stream processing"],
-  ["intuition-panel", "an on-call copilot that drafts the incident timeline from Slack and PagerDuty"],
-  ["intuition-panel", "a code review bot that only comments on what would break in production"],
-  ["intuition-panel", "a local-first API client whose requests live in the git repo"],
-  ["report-panel", "paste a launch post or talk transcript → a CEO, PM and Architect read", ""],
+  ["intuition-panel", "Help me build intuition for Kafka, layer by layer, through real failure situations. I have ADHD."],
+  ["origin-story", "Cloudflare"],
+  ["few-shot", "Durable Objects in Cloudflare"],
+  ["chatxy", "X: Steve Jobs · Y: how to work with agents and build agentic experiences"],
+  ["report-panel", "Subscription vs API pricing models for LLM usage"],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -318,10 +323,7 @@ function closingRow() {
 
 function renderExamples() {
   els.examples.innerHTML = `<div class="ex-label">Try</div>`;
-  const pool = EXAMPLES.filter(([c]) => cmdInfo(c)).sort(() => Math.random() - 0.5);
-  // One example per command, in the picker's order.
-  const picked = state.commands.map((c) => pool.find(([n]) => n === c.name)).filter(Boolean);
-  for (const [c, label, fill = label] of picked) {
+  for (const [c, label, fill = label] of EXAMPLES.filter(([c]) => cmdInfo(c))) {
     const b = document.createElement("button");
     b.className = "ex";
     b.innerHTML = `<span class="c"></span><span class="t"></span>`;
@@ -594,7 +596,12 @@ els.input.addEventListener("focus", syncPopover);
 els.send.onclick = submit;
 $("newBtn").onclick = newSession;
 els.copy.onclick = () => copyMarkdown(els.copy);
-$("menuBtn").onclick = () => document.body.classList.toggle("side-open");
+const SIDEBAR_KEY = "simple-skills.sidebar";
+$("menuBtn").onclick = () => {
+  const open = document.body.classList.toggle("side-open");
+  if (innerWidth >= 760) try { localStorage.setItem(SIDEBAR_KEY, open ? "open" : "closed"); } catch {}
+};
+try { if (innerWidth >= 760 && localStorage.getItem(SIDEBAR_KEY) !== "closed") document.body.classList.add("side-open"); } catch { document.body.classList.add("side-open"); }
 els.scroll.addEventListener("click", () => { if (innerWidth < 760) document.body.classList.remove("side-open"); });
 
 // ---------- boot ----------

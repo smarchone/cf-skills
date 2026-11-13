@@ -80,7 +80,7 @@ function systemPrompt(command, firstPrompt, turnNo) {
 
 You are running the /${command.name} command in a browser chat at a friend's request.
 - The session is capped at ${TURN_CAP} user turns. ${pacing}
-- You have no tools: no web, no files, no scripts, no subagents. If the command says to read a URL, search, or run something, work from your own knowledge and what the user wrote, and say briefly when you are unsure instead of pretending you looked it up. If the command needs a source (a transcript, article or link) and the user gave only a URL, ask them to paste the text. Never claim to have written files.
+- You have no tools: no web, no files, no scripts, no subagents. If the command says to read a URL, search, or run something, work from your own knowledge and what the user wrote, and say briefly when you are unsure instead of pretending you looked it up. If the command expects a source (a transcript, article or link) and the user gave a topic instead, work from what you know and say so in one line; if they gave only a URL you can't read, say so and work from what you know about it. Never claim to have written files.
 - Reply in clean Markdown. Follow the command's turn format and voices exactly.`;
 }
 

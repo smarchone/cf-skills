@@ -8,7 +8,7 @@ Type `/feel <your idea>`, have a streamed **Session** of up to 7 **Turns**, copy
 - `src/worker.js` — stateless Worker. `GET /api/commands`, `POST /api/turn` (`{command, messages}` → SSE).
   Builds the system prompt from the Command + Turn cap note, refuses an 8th Turn, maps the
   Workers AI daily-limit error to a "back tomorrow" message. The model is set once (`MODEL`).
-- `src/commands.js` + `commands/*.md` — the showcased Commands (chatxy, few-shot, intuition-panel, report-panel), copied from the skills repo. report-panel works on pasted text; the Worker never fetches.
+- `src/commands.js` + `commands/*.md` — the showcased Commands (chatxy, few-shot, intuition-panel, origin-story, report-panel), copied from the skills repo. The Worker never fetches; report-panel works on a topic or pasted text.
 
 ## Run
 
