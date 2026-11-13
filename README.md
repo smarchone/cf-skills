@@ -17,7 +17,7 @@ npm install
 npm run dev:mock    # no Cloudflare login needed: fake streamed replies; type "#budget" to simulate the daily limit
 npx wrangler login
 npm run dev         # real Workers AI (remote binding)
-npm run deploy      # → https://cf-simple-skills.<you>.workers.dev
+npm run deploy      # → https://skills.<you>.workers.dev
 ```
 
 To add a Command: drop its `.md` into `commands/` and add an import line in `src/commands.js`.

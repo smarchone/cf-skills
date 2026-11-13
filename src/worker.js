@@ -3,9 +3,10 @@
 import { COMMANDS, COMMAND_LIST } from "./commands.js";
 
 // The model, set in one place so it can be swapped.
-const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const MODEL = "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b";
 const TURN_CAP = 7;
-const MAX_TOKENS = 2048;
+// R1 reasons in <think>…</think> before answering, so it needs room for both. The browser hides the reasoning.
+const MAX_TOKENS = 4096;
 const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
 const SSE_HEADERS = {

@@ -160,6 +160,7 @@ svg { display: block; flex: none; }
 .start .composer { box-shadow: var(--shadow); }
 .composer textarea { display: block; width: 100%; resize: none; border: 0; outline: none; background: transparent; padding: 9px 6px 6px; min-height: 24px; max-height: 40vh; overflow-y: auto; line-height: 1.5; color: var(--ink); font-size: 15px; }
 .start .composer textarea { font-size: 15.5px; padding-top: 11px; }
+@supports (field-sizing: content) { .composer textarea { field-sizing: content; } }
 .start .chip { top: 10px; }
 .composer textarea::placeholder { color: var(--ink-3); }
 .composer-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; padding-left: 4px; }
@@ -628,6 +629,17 @@ function submit() {
   runTurn(s);
 }
 
+// Reasoning models (DeepSeek R1) stream "<think>…</think>" before the answer, often without the opening
+// tag. Return only the answer: "" while still reasoning. If a stream ends with no "</think>", it had no
+// reasoning section, so the whole text is the answer (final = true).
+const isReasoningModel = () => /deepseek-r1|qwq|reason/i.test(state.model || "");
+function answerPart(text, final = false) {
+  const end = text.lastIndexOf("</think>");
+  if (end >= 0) return text.slice(end + 8).replace(/^\s+/, "");
+  if (/^\s*<think>/.test(text)) return ""; // reasoning cut off before the answer
+  return isReasoningModel() && !final ? "" : text;
+}
+
 // ---------- the Turn: POST the whole Session, read the SSE stream ----------
 async function runTurn(s) {
   state.streaming = true;
@@ -640,13 +652,15 @@ async function runTurn(s) {
   let reply = "", errorInfo = null, raf = 0, body = null;
   const paint = () => {
     raf = 0;
+    const shown = answerPart(reply);
+    if (!shown.trim()) return; // still reasoning: keep "Thinking"
     if (!body) {
       body = el("div", "reply");
       const t = turnEl("reply", null, body);
       turn.replaceWith(t); turn = t;
     }
     const nearBottom = els.scroll.scrollHeight - els.scroll.scrollTop - els.scroll.clientHeight < 120;
-    paintReply(body, reply, s.command);
+    paintReply(body, shown, s.command);
     if (nearBottom) scrollToBottom();
   };
 
@@ -686,8 +700,11 @@ async function runTurn(s) {
   }
   cancelAnimationFrame(raf);
 
-  if (reply.trim() && !errorInfo) {
-    s.messages.push({ role: "assistant", content: reply });
+  // Keep only the answer: the reasoning is neither shown nor sent back as history.
+  const answer = answerPart(reply, true).trim();
+  if (!errorInfo && reply.trim() && !answer) errorInfo = { kind: "empty", message: "The model ran out of room while thinking. Send again." };
+  if (answer && !errorInfo) {
+    s.messages.push({ role: "assistant", content: answer });
   } else {
     // Keep the Session; put the failed message back so it can be resent later.
     const failed = s.messages.pop();
@@ -730,9 +747,18 @@ function toast(text) {
 
 // ---------- input wiring ----------
 // Grow with the prompt up to 40% of the viewport, then scroll inside.
+// Grow the composer with its text. Where CSS can do it (field-sizing), there's nothing to do; otherwise
+// measure, but only when the text could have changed height, since each measure lays out the whole page.
+const CSS_SIZING = CSS.supports("field-sizing", "content");
+let lastSized = { len: -1, width: -1 };
 function autosize() {
-  els.input.style.height = "auto";
-  els.input.style.height = Math.min(els.input.scrollHeight, Math.round(innerHeight * 0.4)) + "px";
+  if (CSS_SIZING) return;
+  const i = els.input, len = i.value.length, width = i.clientWidth;
+  // Typing more text that still fits needs no measuring; shrinking or resizing does.
+  if (len > lastSized.len && width === lastSized.width && i.scrollHeight <= i.clientHeight) { lastSized.len = len; return; }
+  lastSized = { len, width };
+  i.style.height = "auto";
+  i.style.height = Math.min(i.scrollHeight, Math.round(innerHeight * 0.4)) + "px";
 }
 function scrollToBottom() { els.scroll.scrollTop = els.scroll.scrollHeight; }
 
@@ -779,6 +805,7 @@ $("home").onclick = (e) => { e.preventDefault(); newSession(); };
     const r = await fetch("/api/commands");
     const j = await r.json();
     state.commands = j.commands; state.turnCap = j.turnCap || TURN_CAP_DEFAULT;
+    state.model = j.model || "";
     if (j.model) {
       // "@cf/meta/llama-3.3-70b-instruct-fp8-fast" → "llama-3.3-70b-instruct-fp8-fast"
       els.metaRight.textContent = `${j.model.split("/").pop()} · free Cloudflare credits`;
