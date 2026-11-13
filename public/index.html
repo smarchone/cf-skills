@@ -175,6 +175,7 @@ svg { display: block; flex: none; }
 .send:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .dock-meta, .start-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12.5px; color: var(--ink-3); min-height: 18px; }
 .dock-meta .warn, .start-meta .warn { color: var(--accent); }
+#metaRight { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 .banner { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 10px; font-size: 14px; background: var(--good-soft); color: var(--good); }
 .banner .grow { flex: 1; }
@@ -287,7 +288,7 @@ const GITHUB = "https://github.com/smarchone/skills";
 
 // Starting points for engineers: [command, text]. Clicking fills the composer; nothing is sent.
 const EXAMPLES = [
-  ["intuition-panel", "Help me build intuition for Kafka, layer by layer, through real failure situations. I have ADHD."],
+  ["intuition-panel", "I'm a curious senior engineer. Help me build intuition on how the matchmaking engine works in popular online games like Dota 2."],
   ["origin-story", "Cloudflare"],
   ["few-shot", "Durable Objects in Cloudflare"],
   ["chatxy", "X: Steve Jobs · Y: how to work with agents and build agentic experiences"],
@@ -763,6 +764,11 @@ $("home").onclick = (e) => { e.preventDefault(); newSession(); };
     const r = await fetch("/api/commands");
     const j = await r.json();
     state.commands = j.commands; state.turnCap = j.turnCap || TURN_CAP_DEFAULT;
+    if (j.model) {
+      // "@cf/meta/llama-3.3-70b-instruct-fp8-fast" → "llama-3.3-70b-instruct-fp8-fast"
+      els.metaRight.textContent = `${j.model.split("/").pop()} · free Cloudflare credits`;
+      els.metaRight.title = `Runs on ${j.model} via Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow.`;
+    }
   } catch {
     state.notice = "Couldn't load the commands. Refresh to try again.";
   }
