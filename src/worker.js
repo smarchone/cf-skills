@@ -111,9 +111,18 @@ function sseError(kind, message, status) {
 function mockStream(command, history, turnNo) {
   const last = history[history.length - 1].content;
   if (last.includes("#budget")) throw new Error("4006: you have used up your daily free allocation of 10,000 neurons");
+  const voices = {
+    "intuition-panel": `**CEO:** Kafka isn't a queue, it's a replicated log. Start there and every failure makes sense.\n\n**PM:** Who feels the first failure? The consumer whose lag graph goes vertical at 2 a.m.\n\n**Architect:** The real constraint: \`acks=all\` with \`min.insync.replicas=2\` — lose two brokers and producers stall.\n\n**CEO:** So layer one is the log. Want to break a broker next?`,
+    chatxy: `**Steve Jobs:** Most people build agents that do more. The question is what they should refuse to do.\n\n**You:** But users want the agent to handle everything.\n\n**Steve Jobs:** No. They want to feel in control while it handles everything. That's a different product.`,
+  };
+  if (voices[command.name] && turnNo < TURN_CAP) return mockFrom(voices[command.name]);
   const text = turnNo === TURN_CAP
     ? `## Conclusion from /${command.name}\n\nThis is the **final turn** (${turnNo}/${TURN_CAP}). Here is the result about:\n\n> ${history[0].content}\n\n- Point one\n- Point two\n\n\`\`\`\nmock output\n\`\`\``
     : `## ${command.name} · turn ${turnNo} of ${TURN_CAP}\n\nYou said: _${last.slice(0, 200)}_. Here is how a **leader election** round plays out when the old leader's lease expires while a follower is mid-heartbeat.\n\n| Step | Node A | Node B |\n|---|---|---|\n| 1 | term 4, leader | follower |\n| 2 | partitioned | timeout → candidate, term 5 |\n\n- The first vote request wins a majority in about \`150 ms\`.\n- Stale writes from A are rejected by term check.\n\n> Rule to infer: a higher term always wins.\n\n\`\`\`\nraft.election_timeout_ms = 150..300\n\`\`\`\n\nWhat do you want to vary next?`;
+  return mockFrom(text);
+}
+
+function mockFrom(text) {
   const enc = new TextEncoder();
   const tokens = text.match(/\S+\s*|\s+/g);
   let i = 0;
