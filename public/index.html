@@ -388,27 +388,42 @@ function turnEl(kind, who, body) {
   return t;
 }
 
-// ---------- voices: multi-role replies (CEO / PM / Architect, X / You) ----------
-// A speaker line is "**Name:** text", "**Name**: text" or "**Name** — text" at the start of a line
-// (or "Name: text" for a role already known). Only a reply with 2+ speakers is split.
+// ---------- voices: multi-role replies (CEO / PM / Architect) ----------
+// Models write the speaker several ways; each of these starts a new voice:
+//   "**CEO:** text"  "**CEO**: text"  "**CEO** — text"  "CEO: text"
+//   "**CEO**" / "### CEO" / "1. **CEO**" alone on a line (the text follows below)
+//   "**CEO (Vision):** text"  (a known role with a note keeps the role's name)
+// Only a reply with 2+ speakers is split.
 const KNOWN_ROLES = ["CEO", "PM", "Architect", "You"];
 const ROLE_COLOR = { ceo: "var(--v1)", pm: "var(--v2)", architect: "var(--v3)" };
-const SPEAKER_BOLD = /^\s*(?:\*\*|__)([A-Za-z][\w .'’&()-]{0,40}?)(?:\s*:\s*(?:\*\*|__)|(?:\*\*|__)\s*(?::|[—–-]))\s*(.*)$/;
-const SPEAKER_PLAIN = new RegExp(`^\\s*(${KNOWN_ROLES.join("|")})\\s*:\\s+(.*)$`);
+const ROLES_RE = KNOWN_ROLES.join("|");
+// Markdown that may wrap a speaker line: a heading, a numbered or bulleted list item.
+const LINE_PREFIX = /^\s*(?:#{1,6}\s+|\d+[.)]\s+|[-+]\s+|\*\s+(?!\*))?/;
+const SPEAKER_BOLD = /^(?:\*\*|__)([A-Za-z][\w .'’&()-]{0,40}?)(?:\s*:\s*(?:\*\*|__)|(?:\*\*|__)\s*(?::|[—–-]))\s*(.*)$/;
+const SPEAKER_PLAIN = new RegExp(`^((?:${ROLES_RE})(?:\\s*\\([^)]*\\))?)\\s*:\\s+(.*)$`, "i");
+const SPEAKER_ALONE = new RegExp(`^(?:\\*\\*|__)?\\s*((?:${ROLES_RE})(?:\\s*\\([^)]*\\))?)\\s*:?\\s*(?:\\*\\*|__)?\\s*:?\\s*$`, "i");
+const KNOWN_ROLE_START = new RegExp(`^(${ROLES_RE})\\b`, "i");
 const NOT_SPEAKERS = /^(note|tl;?dr|pitch|aha|why|how|what|example|step|rule|result|summary|verdict|bottom line|takeaway|question|answer|source)\b/i;
+
+function matchSpeaker(line) {
+  const rest = line.replace(LINE_PREFIX, "");
+  const m = rest.match(SPEAKER_ALONE) || rest.match(SPEAKER_BOLD) || rest.match(SPEAKER_PLAIN);
+  if (!m) return null;
+  let who = m[1].trim();
+  if (who.split(/\s+/).length > 4 || /\d/.test(who) || NOT_SPEAKERS.test(who)) return null;
+  const known = who.match(KNOWN_ROLE_START);
+  if (known) who = KNOWN_ROLES.find((r) => r.toLowerCase() === known[1].toLowerCase());
+  return { who, text: m[2] || "" };
+}
 
 function parseVoices(text) {
   const segs = [{ who: null, lines: [] }];
   let inFence = false;
   for (const line of text.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
-    const m = !inFence && (line.match(SPEAKER_BOLD) || line.match(SPEAKER_PLAIN));
-    const who = m && m[1].trim();
-    if (who && who.split(/\s+/).length <= 4 && !/\d/.test(who) && !NOT_SPEAKERS.test(who)) {
-      segs.push({ who, lines: m[2] ? [m[2]] : [] });
-    } else {
-      segs.at(-1).lines.push(line);
-    }
+    const sp = !inFence && matchSpeaker(line);
+    if (sp) segs.push({ who: sp.who, lines: sp.text ? [sp.text] : [] });
+    else segs.at(-1).lines.push(line);
   }
   const voices = segs.filter((g) => g.who);
   if (new Set(voices.map((g) => g.who.toLowerCase())).size < 2) return null;
