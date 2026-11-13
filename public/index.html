@@ -152,16 +152,21 @@ svg { display: block; flex: none; }
 .dock { flex: none; border-top: 1px solid var(--line); background: var(--bg); padding: 12px 28px 8px; }
 .dock-inner { max-width: 704px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
 #composerHost { position: relative; }
-.composer { position: relative; display: flex; gap: 8px; align-items: flex-end; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 6px 6px 6px 4px; }
-.composer:focus-within { border-color: var(--ink-3); }
-.start .composer { box-shadow: var(--shadow); padding: 8px 8px 8px 6px; }
-.chip { display: none; flex: none; align-self: center; margin-left: 8px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; }
-.chip.on { display: inline-block; }
-.composer textarea { flex: 1; resize: none; border: 0; outline: none; background: transparent; min-height: 40px; max-height: 240px; padding: 9px 10px; line-height: 1.45; color: var(--ink); }
-.start .composer textarea { font-size: 16px; min-height: 46px; padding: 11px 10px; }
+.composer { position: relative; display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 4px 8px 8px 8px; transition: border-color .15s ease; }
+.composer:focus-within { border-color: #3a3e48; }
+.start .composer { box-shadow: var(--shadow); }
+.composer textarea { display: block; width: 100%; resize: none; border: 0; outline: none; background: transparent; padding: 9px 6px 6px; min-height: 24px; max-height: 40vh; overflow-y: auto; line-height: 1.5; color: var(--ink); font-size: 15px; }
+.start .composer textarea { font-size: 15.5px; padding-top: 11px; }
 .composer textarea::placeholder { color: var(--ink-3); }
-.composer .btn { height: 36px; }
-.start .composer .btn { height: 40px; }
+.composer-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; padding-left: 4px; }
+.chip { display: none; align-items: center; gap: 2px; font-family: var(--mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 3px 2px 8px; line-height: 20px; }
+.chip.on { display: inline-flex; }
+.chip button { border: 0; background: none; color: var(--accent); opacity: .6; cursor: pointer; width: 18px; height: 18px; border-radius: 4px; line-height: 1; font-size: 14px; padding: 0; }
+.chip button:hover { opacity: 1; background: rgba(170,180,255,.12); }
+.send { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: var(--ink); color: var(--bg); cursor: pointer; transition: background .15s ease, color .15s ease; }
+.send:hover:not(:disabled) { background: #fff; }
+.send:disabled { background: var(--sunken); color: var(--ink-3); cursor: default; }
+.send:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .dock-meta, .start-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12.5px; color: var(--ink-3); min-height: 18px; }
 .dock-meta .warn, .start-meta .warn { color: var(--accent); }
 
@@ -175,10 +180,9 @@ svg { display: block; flex: none; }
 .menu { display: none; position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 30; padding: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--pop-shadow); }
 .start .menu { bottom: auto; top: calc(100% + 8px); }
 .menu.on { display: block; }
-.menu-item { display: block; width: 100%; text-align: left; padding: 7px 9px; border: 0; border-radius: 6px; background: none; font-family: var(--mono); font-size: 13.5px; cursor: pointer; color: var(--ink-2); }
+.menu-item { display: block; width: 100%; text-align: left; padding: 6px 10px; border: 0; border-radius: 6px; background: none; font-family: var(--mono); font-size: 13px; cursor: pointer; color: var(--ink-3); }
 .menu-item.sel { background: var(--sunken); color: var(--ink); }
-.menu-item.sel::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 1px; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
-.menu-desc { border-top: 1px solid var(--line); margin-top: 5px; padding: 9px 9px 5px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.menu-desc { border-top: 1px solid var(--line); margin-top: 5px; padding: 9px 10px 4px; font-size: 12.5px; line-height: 1.5; color: var(--ink-3); height: calc(12.5px * 1.5 * 3 + 13px); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .menu-desc a { color: var(--ink-3); text-decoration: none; white-space: nowrap; margin-left: 2px; }
 .menu-desc a:hover { color: var(--accent); }
 .menu-empty { padding: 7px 9px; font-size: 13px; color: var(--ink-3); }
@@ -251,9 +255,14 @@ svg { display: block; flex: none; }
 <!-- One composer, moved between the start page and the dock -->
 <div id="composerHost">
   <div class="composer" id="box">
-    <span class="chip" id="chip"></span>
     <textarea id="input" rows="1" placeholder="/command  your idea or question"></textarea>
-    <button class="btn primary" id="sendBtn" disabled>Send</button>
+    <div class="composer-bar">
+      <span class="chip" id="chip"><span id="chipName"></span><button id="chipClear" type="button" title="Change command" aria-label="Change command">×</button></span>
+      <span class="grow"></span>
+      <button class="send" id="sendBtn" type="button" title="Send (↵)" aria-label="Send" disabled>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+      </button>
+    </div>
     <div class="menu" id="popover" role="listbox"></div>
   </div>
   <div class="dock-meta" id="meta"><span id="hint"></span><span id="metaRight"></span></div>
@@ -281,7 +290,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   scroll: $("scroll"), start: $("start"), thread: $("thread"), dock: $("dock"), side: $("side"),
   startSlot: $("startSlot"), dockSlot: $("dockSlot"), host: $("composerHost"),
-  input: $("input"), chip: $("chip"), send: $("sendBtn"), popover: $("popover"),
+  input: $("input"), chip: $("chip"), chipName: $("chipName"), send: $("sendBtn"), popover: $("popover"),
   hint: $("hint"), metaRight: $("metaRight"), crumbs: $("crumbs"), rail: $("rail"), copy: $("copyBtn"), examples: $("examples"),
 };
 
@@ -462,7 +471,7 @@ function renderComposer(s) {
   if (closed) els.dockSlot.appendChild(closingBanner());
 
   els.chip.classList.toggle("on", !s && !!state.pendingCommand);
-  els.chip.textContent = state.pendingCommand ? "/" + state.pendingCommand : "";
+  els.chipName.textContent = state.pendingCommand ? "/" + state.pendingCommand : "";
   els.input.disabled = state.streaming;
   if (s) els.input.placeholder = state.streaming ? `/${s.command} is answering` : `Reply to /${s.command}`;
   else if (state.pendingCommand) els.input.placeholder = cmdInfo(state.pendingCommand)?.hint || "Your idea or question";
@@ -692,7 +701,11 @@ function toast(text) {
 }
 
 // ---------- input wiring ----------
-function autosize() { els.input.style.height = "auto"; els.input.style.height = Math.min(els.input.scrollHeight, 240) + "px"; }
+// Grow with the prompt up to 40% of the viewport, then scroll inside.
+function autosize() {
+  els.input.style.height = "auto";
+  els.input.style.height = Math.min(els.input.scrollHeight, Math.round(innerHeight * 0.4)) + "px";
+}
 function scrollToBottom() { els.scroll.scrollTop = els.scroll.scrollHeight; }
 
 els.input.addEventListener("input", () => {
@@ -727,6 +740,8 @@ els.input.addEventListener("keydown", (e) => {
 els.input.addEventListener("blur", () => setTimeout(closePopover, 120));
 els.input.addEventListener("focus", syncPopover);
 els.send.onclick = submit;
+$("chipClear").onclick = () => { state.pendingCommand = null; renderComposer(null); els.input.focus(); };
+addEventListener("resize", autosize);
 els.copy.onclick = copyMarkdown;
 $("home").onclick = (e) => { e.preventDefault(); newSession(); };
 
