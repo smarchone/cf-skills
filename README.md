@@ -44,6 +44,6 @@ npm run start:mock          # fake replies, no keys
 docker build -t skills . && docker run -p 8787:8787 --env-file .env skills
 ```
 
-Only the Models with credentials are offered. Put it behind a TLS proxy (Caddy, nginx) that doesn't buffer
+Only the Models with credentials are offered: a private server can run Claude alone (just `ANTHROPIC_API_KEY`), and then nothing mentions Workers AI. Put it behind a TLS proxy (Caddy, nginx) that doesn't buffer
 `text/event-stream` responses and allows long idle times, so replies stream token by token.
 

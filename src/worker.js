@@ -115,7 +115,7 @@ async function turn(request, env) {
         ? await claudeStream(env, model, profile, instructions, history)
         : await workersAiStream(env, model, profile, instructions, command, history, turnNo);
   } catch (err) {
-    return kind === "claude" ? claudeError(err) : aiError(err);
+    return kind === "claude" ? claudeError(err, env) : aiError(err);
   }
   return new Response(stream, { headers: SSE_HEADERS });
 }
@@ -141,10 +141,10 @@ async function claudeStream(env, model, profile, instructions, history) {
   });
   const events = stream[Symbol.asyncIterator]();
   const first = await events.next();
-  return sseFromEvents(first, events, stream);
+  return sseFromEvents(first, events, stream, claudeBudgetOut(env));
 }
 
-function sseFromEvents(first, events, stream) {
+function sseFromEvents(first, events, stream, budgetOut) {
   const enc = new TextEncoder();
   const send = (ctrl, data, event) => ctrl.enqueue(enc.encode(`${event ? `event: ${event}\n` : ""}data: ${data}\n\n`));
   let pending = first;
@@ -169,7 +169,7 @@ function sseFromEvents(first, events, stream) {
         }
       } catch (err) {
         console.error("Claude stream error:", err?.message || err);
-        const out = isClaudeBudgetOut(err) ? CLAUDE_BUDGET_OUT : { kind: "ai_error", message: "Claude stopped mid-reply. Try sending again." };
+        const out = isClaudeBudgetOut(err) ? budgetOut : { kind: "ai_error", message: "Claude stopped mid-reply. Try sending again." };
         send(ctrl, JSON.stringify(out), "error");
       }
       ctrl.close();
@@ -179,11 +179,14 @@ function sseFromEvents(first, events, stream) {
 }
 
 // Budget out on Claude: the key's credit balance is spent, or Anthropic is rate-limiting us.
-// Both are the ceiling the owner chose, not failures.
-const CLAUDE_BUDGET_OUT = {
+// Both are the ceiling the owner chose, not failures. Workers AI is suggested only where it's offered
+// (a self-hosted server may run Claude alone).
+const claudeBudgetOut = (env) => ({
   kind: "budget",
-  message: "Claude's budget is used up — start a new session on a Workers AI model or come back later. This session is saved.",
-};
+  message: workersAiReady(env)
+    ? "Claude's budget is used up — start a new session on a Workers AI model or come back later. This session is saved."
+    : "Claude's budget is used up — come back later. This session is saved.",
+});
 function isClaudeBudgetOut(err) {
   if (err instanceof Anthropic.RateLimitError) return true;
   // Anthropic reports an empty credit balance as a 400 (or 402/403) whose message names the credit balance / billing.
@@ -192,10 +195,10 @@ function isClaudeBudgetOut(err) {
   }
   return false;
 }
-function claudeError(err) {
-  if (isClaudeBudgetOut(err)) return sseError(CLAUDE_BUDGET_OUT.kind, CLAUDE_BUDGET_OUT.message, 429);
+function claudeError(err, env) {
+  if (isClaudeBudgetOut(err)) { const out = claudeBudgetOut(env); return sseError(out.kind, out.message, 429); }
   console.error("Claude error:", err?.message || err);
-  if (err instanceof Anthropic.AuthenticationError) return sseError("ai_error", "Claude isn't reachable right now (the server's key was refused). Start a new session on a Workers AI model.", 502);
+  if (err instanceof Anthropic.AuthenticationError) return sseError("ai_error", `Claude isn't reachable right now (the server's key was refused).${workersAiReady(env) ? " Start a new session on a Workers AI model." : " Try again later."}`, 502);
   return sseError("ai_error", "Claude didn't answer this time. Try sending again.", 502);
 }
 
