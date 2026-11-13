@@ -1,5 +1,6 @@
 // Stateless Worker: turns one Turn (Command + Session history) into a streamed reply.
 // It stores nothing; the browser owns every Session.
+import Anthropic from "@anthropic-ai/sdk";
 import { COMMANDS, COMMAND_LIST } from "./commands.js";
 
 // The models a visitor can pick from: every Workers AI chat model that runs on the free daily allowance
@@ -14,7 +15,15 @@ import { COMMANDS, COMMAND_LIST } from "./commands.js";
 //   inlineThinking: the model streams its reasoning inside the answer text (<think>…</think>), so the
 //                 browser hides text until the reasoning ends. false = no reasoning, or sent in a separate field.
 //   verified:     replies checked live in this app. Unverified entries follow the catalog schema only.
+// Claude models (kind: "claude") are called through the Anthropic Messages API with the owner's key
+// (Worker secret ANTHROPIC_API_KEY); they're listed only when that key is set. Their Budget is the key's
+// credit balance. effort: thinking depth (Claude thinks silently; nothing extra reaches the browser).
+const CLAUDE_MODELS = {
+  "claude-haiku-5-5": { kind: "claude", label: "Claude Haiku 5.5", maxTokens: 16000, effort: "medium", verified: true },
+  "claude-sonnet-5-5": { kind: "claude", label: "Claude Sonnet 5.5", maxTokens: 16000, effort: "low", verified: true },
+};
 const MODELS = {
+  ...CLAUDE_MODELS,
   "@cf/zai-org/glm-4.7-flash": { label: "GLM 4.7 Flash", instructions: "system", maxTokens: 8192, inlineThinking: false, verified: true },
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast": { label: "Llama 3.3 70B", instructions: "system", maxTokens: 2048, inlineThinking: false, verified: true },
   "@cf/openai/gpt-oss-120b": { label: "gpt-oss 120B", instructions: "system", maxTokens: 8192, inlineThinking: false },
@@ -30,9 +39,16 @@ const MODELS = {
   "@cf/utter-project/eurollm-9b-it": { label: "EuroLLM 9B", instructions: "system", maxTokens: 4096, inlineThinking: false },
   "@cf/swiss-ai/apertus-v1.5-8b": { label: "Apertus 1.5 8B", instructions: "system", maxTokens: 4096, inlineThinking: false },
 };
-const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
-if (!MODELS[DEFAULT_MODEL]) throw new Error(`No MODELS entry for ${DEFAULT_MODEL}`);
-const MODEL_LIST = Object.entries(MODELS).map(([id, p]) => ({ id, label: p.label, inlineThinking: p.inlineThinking, verified: !!p.verified }));
+const DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5"; // when Claude is configured
+const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash"; // otherwise
+for (const id of [DEFAULT_CLAUDE_MODEL, DEFAULT_WORKERS_AI_MODEL]) if (!MODELS[id]) throw new Error(`No MODELS entry for ${id}`);
+const kindOf = (profile) => profile.kind || "workers-ai";
+// Claude needs the owner's key (or the local mock); without it only Workers AI is offered.
+const claudeReady = (env) => !!(env.ANTHROPIC_API_KEY || env.MOCK_AI);
+const modelList = (env) => Object.entries(MODELS)
+  .filter(([, p]) => kindOf(p) !== "claude" || claudeReady(env))
+  .map(([id, p]) => ({ id, label: p.label, kind: kindOf(p), inlineThinking: !!p.inlineThinking, verified: !!p.verified }));
+const defaultModel = (env) => (claudeReady(env) ? DEFAULT_CLAUDE_MODEL : DEFAULT_WORKERS_AI_MODEL);
 const TURN_CAP = 7;
 const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
@@ -46,7 +62,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/commands" && request.method === "GET") {
-      return Response.json({ commands: COMMAND_LIST, turnCap: TURN_CAP, models: MODEL_LIST, defaultModel: DEFAULT_MODEL });
+      return Response.json({ commands: COMMAND_LIST, turnCap: TURN_CAP, models: modelList(env), defaultModel: defaultModel(env) });
     }
     if (url.pathname === "/api/turn" && request.method === "POST") {
       return turn(request, env);
@@ -76,23 +92,106 @@ async function turn(request, env) {
     return sseError("turn_cap", `This session has used all ${TURN_CAP} turns. Start a new session to keep going.`, 409);
   }
 
-  // The picked model applies per Turn, so a visitor can switch mid-Session.
-  const model = payload.model ?? DEFAULT_MODEL;
+  // The Session's Model is picked before it starts and the browser sends the same one every Turn.
+  const model = payload.model ?? defaultModel(env);
   const profile = MODELS[model];
   if (!profile) return sseError("bad_request", `Unknown model "${model}".`, 400);
+  const kind = kindOf(profile);
+  if (kind === "claude" && !claudeReady(env)) {
+    return sseError("bad_request", "Claude isn't set up on this server. Start a new session on a Workers AI model.", 400);
+  }
 
   const instructions = systemPrompt(command, history[0].content, turnNo);
-  const messages = profile.instructions === "user" ? inUserMessages(instructions, command, history, turnNo) : [{ role: "system", content: instructions }, ...history];
-
   let stream;
   try {
-    stream = env.AI
-      ? await env.AI.run(model, { messages, stream: true, max_tokens: profile.maxTokens })
-      : mockStream(command, history, turnNo);
+    stream = env.MOCK_AI
+      ? mockStream(command, history, turnNo, kind)
+      : kind === "claude"
+        ? await claudeStream(env, model, profile, instructions, history)
+        : await workersAiStream(env, model, profile, instructions, command, history, turnNo);
   } catch (err) {
-    return aiError(err);
+    return kind === "claude" ? claudeError(err) : aiError(err);
   }
   return new Response(stream, { headers: SSE_HEADERS });
+}
+
+// ---------- the Model seam: every kind streams back `data: {"response": "<text>"}` … `data: [DONE]` ----------
+
+async function workersAiStream(env, model, profile, instructions, command, history, turnNo) {
+  const messages = profile.instructions === "user" ? inUserMessages(instructions, command, history, turnNo) : [{ role: "system", content: instructions }, ...history];
+  return env.AI.run(model, { messages, stream: true, max_tokens: profile.maxTokens });
+}
+
+// Claude through the Anthropic Messages API. The Command's system prompt carries a cache breakpoint, since
+// every Turn resends it. The first event is awaited here, so a credit / rate-limit error becomes a clean
+// HTTP error response instead of a broken stream.
+async function claudeStream(env, model, profile, instructions, history) {
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined, maxRetries: 1 });
+  const stream = client.messages.stream({
+    model,
+    max_tokens: profile.maxTokens,
+    output_config: { effort: profile.effort },
+    system: [{ type: "text", text: instructions, cache_control: { type: "ephemeral" } }],
+    messages: history,
+  });
+  const events = stream[Symbol.asyncIterator]();
+  const first = await events.next();
+  return sseFromEvents(first, events, stream);
+}
+
+function sseFromEvents(first, events, stream) {
+  const enc = new TextEncoder();
+  const send = (ctrl, data, event) => ctrl.enqueue(enc.encode(`${event ? `event: ${event}\n` : ""}data: ${data}\n\n`));
+  let pending = first;
+  return new ReadableStream({
+    async pull(ctrl) {
+      try {
+        // Forward text deltas only; thinking stays server-side.
+        for (;;) {
+          const { value: ev, done } = pending ?? (await events.next());
+          pending = null;
+          if (done) break;
+          if (ev.type === "content_block_delta" && ev.delta.type === "text_delta" && ev.delta.text) {
+            send(ctrl, JSON.stringify({ response: ev.delta.text }));
+            return;
+          }
+        }
+        const final = await stream.finalMessage();
+        if (final.stop_reason === "refusal") {
+          send(ctrl, JSON.stringify({ kind: "refusal", message: "Claude declined to continue this one. Try rephrasing, or start a new session." }), "error");
+        } else {
+          send(ctrl, "[DONE]");
+        }
+      } catch (err) {
+        console.error("Claude stream error:", err?.message || err);
+        const out = isClaudeBudgetOut(err) ? CLAUDE_BUDGET_OUT : { kind: "ai_error", message: "Claude stopped mid-reply. Try sending again." };
+        send(ctrl, JSON.stringify(out), "error");
+      }
+      ctrl.close();
+    },
+    cancel() { stream.abort(); },
+  });
+}
+
+// Budget out on Claude: the key's credit balance is spent, or Anthropic is rate-limiting us.
+// Both are the ceiling the owner chose, not failures.
+const CLAUDE_BUDGET_OUT = {
+  kind: "budget",
+  message: "Claude's budget is used up — start a new session on a Workers AI model or come back later. This session is saved.",
+};
+function isClaudeBudgetOut(err) {
+  if (err instanceof Anthropic.RateLimitError) return true;
+  // Anthropic reports an empty credit balance as a 400 (or 402/403) whose message names the credit balance / billing.
+  if (err instanceof Anthropic.APIError && [400, 402, 403].includes(err.status)) {
+    return /credit balance|billing|spend limit|usage limit/i.test(String(err.message));
+  }
+  return false;
+}
+function claudeError(err) {
+  if (isClaudeBudgetOut(err)) return sseError(CLAUDE_BUDGET_OUT.kind, CLAUDE_BUDGET_OUT.message, 429);
+  console.error("Claude error:", err?.message || err);
+  if (err instanceof Anthropic.AuthenticationError) return sseError("ai_error", "Claude isn't reachable right now (the server's key was refused). Start a new session on a Workers AI model.", 502);
+  return sseError("ai_error", "Claude didn't answer this time. Try sending again.", 502);
 }
 
 // For models with instructions: "user" (e.g. DeepSeek R1, which follows a system prompt weakly; DeepSeek
@@ -164,10 +263,13 @@ function sseError(kind, message, status) {
   return new Response(body, { status, headers: SSE_HEADERS });
 }
 
-// Local-only stand-in for Workers AI (dev:mock). Type "#budget" to simulate the daily limit.
-function mockStream(command, history, turnNo) {
+// Local-only stand-in for every Model (dev:mock). Type "#budget" to simulate the Model's Budget running out.
+function mockStream(command, history, turnNo, kind) {
   const last = history[history.length - 1].content;
-  if (last.includes("#budget")) throw new Error("4006: you have used up your daily free allocation of 10,000 neurons");
+  if (last.includes("#budget")) {
+    if (kind === "claude") throw new Anthropic.RateLimitError(429, { type: "error", error: { type: "rate_limit_error", message: "mock" } }, "mock", new Headers());
+    throw new Error("4006: you have used up your daily free allocation of 10,000 neurons");
+  }
   const voices = {
     "intuition-panel": `**CEO:** Kafka isn't a queue, it's a replicated log. Start there and every failure makes sense.\n\n**PM:** Who feels the first failure? The consumer whose lag graph goes vertical at 2 a.m.\n\n**Architect:** The real constraint: \`acks=all\` with \`min.insync.replicas=2\` — lose two brokers and producers stall.\n\n**CEO:** So layer one is the log. Want to break a broker next?`,
     chatxy: `**Steve Jobs:** Most people build agents that do more. The question is what they should refuse to do.\n\n**You:** But users want the agent to handle everything.\n\n**Steve Jobs:** No. They want to feel in control while it handles everything. That's a different product.`,

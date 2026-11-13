@@ -50,6 +50,7 @@ svg { display: block; flex: none; }
 .crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 14px; }
 .crumb-sep { color: var(--ink-3); }
 .crumb-cmd { font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: var(--accent); flex: none; }
+.crumb-model { color: var(--ink-3); font-size: 12.5px; white-space: nowrap; flex: none; }
 .crumb-title { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .grow { flex: 1; }
 .rail { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ink-3); flex: none; }
@@ -292,7 +293,7 @@ svg { display: block; flex: none; }
 const TURN_CAP_DEFAULT = 7;
 const STORE_KEY = "simple-skills.sessions";
 const CURRENT_KEY = "simple-skills.current";
-const MODEL_KEY = "simple-skills.model";
+const MODEL_KEY = "simple-skills.model.v2"; // v2: Claude became the default, so earlier picks are reset once
 const GITHUB = "https://github.com/smarchone/skills";
 
 // Starting points for engineers: [command, text]. Clicking fills the composer; nothing is sent.
@@ -314,8 +315,8 @@ const els = {
 
 const state = {
   commands: [], turnCap: TURN_CAP_DEFAULT,
-  models: [], model: "",     // picked Workers AI model id (remembered in localStorage)
-  sessions: load(),          // [{id, command, title, messages:[{role,content}], createdAt, updatedAt}]
+  models: [], model: "",     // Model picked for the next Session (remembered in localStorage); a Session keeps its own
+  sessions: load(),          // [{id, command, model, title, messages:[{role,content}], createdAt, updatedAt}]
   currentId: null,
   pendingCommand: null,      // chosen in the composer before the Session starts
   popIndex: 0, popItems: [],
@@ -332,6 +333,9 @@ const current = () => state.sessions.find((s) => s.id === state.currentId) || nu
 const userTurns = (s) => s ? s.messages.filter((m) => m.role === "user").length : 0;
 const isClosed = (s) => !!s && userTurns(s) >= state.turnCap && s.messages.at(-1)?.role === "assistant";
 const cmdInfo = (name) => state.commands.find((c) => c.name === name);
+const modelInfo = (id) => state.models.find((m) => m.id === id);
+// A Session runs on the Model it started with; the dropdown only picks the Model for the next one.
+const sessionModel = (s) => (s && s.model) || state.model;
 
 marked.setOptions({ gfm: true, breaks: false });
 const md = (text) => DOMPurify.sanitize(marked.parse(text || ""));
@@ -347,6 +351,7 @@ function render() {
   const slot = s ? els.dockSlot : els.startSlot;
   if (els.host.parentElement !== slot) slot.appendChild(els.host);
   renderSide(); renderHead(s); renderThread(s); renderComposer(s);
+  if (state.models.length) renderModelPick();
 }
 
 function renderSide() {
@@ -385,7 +390,7 @@ function renderHead(s) {
   els.rail.innerHTML = "";
   els.copy.hidden = !s || !s.messages.some((m) => m.role === "assistant");
   if (!s) return;
-  els.crumbs.append(el("span", "crumb-cmd", "/" + s.command), el("span", "crumb-title", s.title));
+  els.crumbs.append(el("span", "crumb-cmd", "/" + s.command), el("span", "crumb-model", "on " + (modelInfo(sessionModel(s))?.label || sessionModel(s))), el("span", "crumb-title", s.title));
   const done = isClosed(s);
   els.rail.appendChild(el("span", "step " + (done ? "done" : "now"),
     done ? "Complete" : `Turn ${Math.max(1, Math.min(userTurns(s), state.turnCap))} / ${state.turnCap}`));
@@ -625,7 +630,7 @@ function submit() {
     let command = state.pendingCommand;
     if (!command) { const p = parseSlash(text); command = p.name; text = p.rest.trim(); }
     if (!text) return;
-    s = { id: crypto.randomUUID(), command, title: text.split("\n")[0].slice(0, 80), messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+    s = { id: crypto.randomUUID(), command, model: state.model, title: text.split("\n")[0].slice(0, 80), messages: [], createdAt: Date.now(), updatedAt: Date.now() };
     state.sessions.push(s);
     state.currentId = s.id;
     state.pendingCommand = null;
@@ -641,7 +646,7 @@ function submit() {
 // Reasoning models (DeepSeek R1) stream "<think>…</think>" before the answer, often without the opening
 // tag. Return only the answer: "" while still reasoning. If a stream ends with no "</think>", it had no
 // reasoning section, so the whole text is the answer (final = true).
-const isReasoningModel = () => !!state.models.find((m) => m.id === state.model)?.inlineThinking; // per model, from the Worker's MODELS table
+const isReasoningModel = () => !!modelInfo(sessionModel(current()))?.inlineThinking; // per model, from the Worker's MODELS table
 function answerPart(text, final = false) {
   const end = text.lastIndexOf("</think>");
   if (end >= 0) return text.slice(end + 8).replace(/^\s+/, "");
@@ -651,8 +656,8 @@ function answerPart(text, final = false) {
 
 // ---------- the Turn: POST the whole Session, read the SSE stream ----------
 async function runTurn(s) {
+  if (!s.model) s.model = state.model; // a Session saved before Models were locked takes the current pick, then keeps it
   state.streaming = true;
-  els.modelPick.disabled = true; // the reply is read with this model's thinking rules
   render(); scrollToBottom();
   const said = el("div", "said"); said.innerHTML = `<span class="wait-bar"></span>Thinking`;
   let turn = turnEl("wait", null, said);
@@ -678,7 +683,7 @@ async function runTurn(s) {
     const res = await fetch("/api/turn", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ command: s.command, messages: s.messages, model: state.model || undefined }),
+      body: JSON.stringify({ command: s.command, messages: s.messages, model: s.model || undefined }),
     });
     if (!res.body) throw new Error("No response body");
     const reader = res.body.getReader();
@@ -728,7 +733,6 @@ async function runTurn(s) {
   }
   s.updatedAt = Date.now();
   state.streaming = false;
-  els.modelPick.disabled = false;
   save(); render(); autosize(); scrollToBottom();
   if (!isClosed(current())) els.input.focus();
 }
@@ -810,27 +814,42 @@ addEventListener("resize", autosize);
 els.copy.onclick = copyMarkdown;
 $("home").onclick = (e) => { e.preventDefault(); newSession(); };
 
-// ---------- model picker: every free Workers AI chat model the Worker lists ----------
+// ---------- model picker: Claude models and free Workers AI models, picked before a Session starts ----------
+const KIND_LABEL = { claude: "Claude", "workers-ai": "Workers AI · free" };
 function renderModelPick() {
   const pick = els.modelPick;
-  pick.replaceChildren(...state.models.map((m) => {
-    const o = el("option", null, m.verified ? m.label : `${m.label} · beta`);
-    o.value = m.id; o.title = m.id;
-    return o;
-  }));
-  pick.value = state.model;
+  const s = current();
+  const shown = sessionModel(s);
+  const groups = [];
+  for (const kind of Object.keys(KIND_LABEL)) {
+    const ms = state.models.filter((m) => m.kind === kind);
+    if (!ms.length) continue;
+    const g = document.createElement("optgroup"); g.label = KIND_LABEL[kind];
+    g.append(...ms.map((m) => { const o = el("option", null, m.verified ? m.label : `${m.label} · beta`); o.value = m.id; o.title = m.id; return o; }));
+    groups.push(g);
+  }
+  pick.replaceChildren(...groups);
+  pick.value = shown;
   pick.hidden = !state.models.length;
+  pick.disabled = !!s; // one Model per Session
   // A <select> is as wide as its longest option; fit it to the picked label instead.
   const probe = el("span", null, pick.selectedOptions[0]?.textContent || "");
   probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
   els.metaRight.appendChild(probe);
   pick.style.width = `${probe.offsetWidth + 34}px`; // + padding, border and chevron
   probe.remove();
-  pick.title = `${state.model} via Cloudflare Workers AI. Switch any time; the next turn uses the new model.`;
-  els.metaRight.querySelector(".free").textContent = state.models.length ? "· free Cloudflare credits" : "";
-  els.metaRight.title = "Runs on Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow.";
+  const info = modelInfo(shown);
+  const claude = info?.kind === "claude";
+  pick.title = s
+    ? `This session runs on ${info?.label || shown}. Start a new session to switch models.`
+    : `${shown} via ${claude ? "the Anthropic API" : "Cloudflare Workers AI"}. The model is fixed once the session starts.`;
+  els.metaRight.querySelector(".free").textContent = !state.models.length ? "" : claude ? "· on the owner's Claude credits" : "· free Cloudflare credits";
+  els.metaRight.title = claude
+    ? "Claude runs on a small credit balance the owner pays for. When it's used up, start a new session on a Workers AI model or come back later."
+    : "Runs on Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow.";
 }
 els.modelPick.onchange = () => {
+  if (current()) return;
   state.model = els.modelPick.value;
   try { localStorage.setItem(MODEL_KEY, state.model); } catch {}
   renderModelPick();
