@@ -6,7 +6,7 @@ import { COMMANDS, COMMAND_LIST } from "./commands.js";
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const TURN_CAP = 7;
 const MAX_TOKENS = 2048;
-const MAX_MESSAGE_CHARS = 8000;
+const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
 const SSE_HEADERS = {
   "content-type": "text/event-stream; charset=utf-8",
@@ -80,7 +80,7 @@ function systemPrompt(command, firstPrompt, turnNo) {
 
 You are running the /${command.name} command in a browser chat at a friend's request.
 - The session is capped at ${TURN_CAP} user turns. ${pacing}
-- You have no tools: no web, no files, no scripts, no subagents. If the command says to read a URL, search, or run something, work from your own knowledge and what the user wrote, and say briefly when you are unsure instead of pretending you looked it up.
+- You have no tools: no web, no files, no scripts, no subagents. If the command says to read a URL, search, or run something, work from your own knowledge and what the user wrote, and say briefly when you are unsure instead of pretending you looked it up. If the command needs a source (a transcript, article or link) and the user gave only a URL, ask them to paste the text. Never claim to have written files.
 - Reply in clean Markdown. Follow the command's turn format and voices exactly.`;
 }
 
@@ -113,7 +113,7 @@ function mockStream(command, history, turnNo) {
   if (last.includes("#budget")) throw new Error("4006: you have used up your daily free allocation of 10,000 neurons");
   const text = turnNo === TURN_CAP
     ? `## Conclusion from /${command.name}\n\nThis is the **final turn** (${turnNo}/${TURN_CAP}). Here is the result about:\n\n> ${history[0].content}\n\n- Point one\n- Point two\n\n\`\`\`\nmock output\n\`\`\``
-    : `**/${command.name}** · turn ${turnNo} of ${TURN_CAP}\n\nYou said: _${last.slice(0, 200)}_\n\n1. A mock thought\n2. Another one with \`code\`\n\nWhat next?`;
+    : `## ${command.name} · turn ${turnNo} of ${TURN_CAP}\n\nYou said: _${last.slice(0, 200)}_. Here is how a **leader election** round plays out when the old leader's lease expires while a follower is mid-heartbeat.\n\n| Step | Node A | Node B |\n|---|---|---|\n| 1 | term 4, leader | follower |\n| 2 | partitioned | timeout → candidate, term 5 |\n\n- The first vote request wins a majority in about \`150 ms\`.\n- Stale writes from A are rejected by term check.\n\n> Rule to infer: a higher term always wins.\n\n\`\`\`\nraft.election_timeout_ms = 150..300\n\`\`\`\n\nWhat do you want to vary next?`;
   const enc = new TextEncoder();
   const tokens = text.match(/\S+\s*|\s+/g);
   let i = 0;
