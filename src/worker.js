@@ -71,11 +71,14 @@ async function turn(request, env) {
 function inUserMessages(instructions, command, history, turnNo) {
   const msgs = history.map((m) => ({ ...m }));
   // Small reasoning models answer whatever they read last, so the format reminder closes the message.
-  const reminder = `You are running /${command.name}. Do not answer the topic directly. While thinking, plan your reply in the command's format (its voices, order and length); then write the reply in exactly that format. If the command has an "Output format", your reply must start the way it shows.`;
+  // If the command spells out an Output format, name its first line so the reply opens on it.
+  const opener = command.body.split(/^## Output format\s*$/m)[1]?.match(/^\s*(\*\*[^*\n]+:\*\*)/m)?.[1];
+  const reminder = `You are running /${command.name}. Do not write an essay or a numbered overview of the topic. While thinking, plan your reply in the command's format (its voices, order and length); then write the reply in exactly that format.${opener ? ` Your reply must begin with ${opener}` : ""}`;
   msgs[0].content = `${instructions}\n\n---\n\n## What the user brought to /${command.name}\n\n${msgs[0].content}\n\n---\n\n${reminder}`;
   if (msgs.length > 1) {
+    // Later turns: respond to this message and move on; the first-turn "don't answer the topic" would stall it.
     const last = msgs[msgs.length - 1];
-    last.content = `${last.content}\n\n(Session note: ${pacingNote(turnNo)} ${reminder})`;
+    last.content = `${last.content}\n\n(Session note: ${pacingNote(turnNo)} Respond to this message above, building on the earlier turns: answer what was asked and add only new ideas, never repeating earlier points, phrasings or diagrams. Write the reply in the /${command.name} format from the first message.)`;
   }
   return msgs;
 }
