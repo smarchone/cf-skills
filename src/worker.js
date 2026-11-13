@@ -2,13 +2,38 @@
 // It stores nothing; the browser owns every Session.
 import { COMMANDS, COMMAND_LIST } from "./commands.js";
 
-// The model, set in one place so it can be swapped.
-const MODEL = "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b";
+// The models a visitor can pick from: every Workers AI chat model that runs on the free daily allowance
+// (no Workers Paid plan needed) and isn't scheduled for deprecation. Refresh the list with
+// `npx wrangler ai models list --task "Text Generation" --json` (skip `require_workers_paid` and
+// `planned_deprecation_date` entries, LoRA bases, guard/evaluator models).
+// Each model's quirks live in its entry, so the rest of the pipeline never checks model names:
+//   label:        name shown in the picker.
+//   instructions: "system" → command instructions go in a system prompt;
+//                 "user"   → they open the first user message (for models that follow a system prompt weakly).
+//   maxTokens:    reply cap; reasoning models need room for their thinking too, which counts against it.
+//   inlineThinking: the model streams its reasoning inside the answer text (<think>…</think>), so the
+//                 browser hides text until the reasoning ends. false = no reasoning, or sent in a separate field.
+//   verified:     replies checked live in this app. Unverified entries follow the catalog schema only.
+const MODELS = {
+  "@cf/zai-org/glm-4.7-flash": { label: "GLM 4.7 Flash", instructions: "system", maxTokens: 8192, inlineThinking: false, verified: true },
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast": { label: "Llama 3.3 70B", instructions: "system", maxTokens: 2048, inlineThinking: false, verified: true },
+  "@cf/openai/gpt-oss-120b": { label: "gpt-oss 120B", instructions: "system", maxTokens: 8192, inlineThinking: false },
+  "@cf/openai/gpt-oss-20b": { label: "gpt-oss 20B", instructions: "system", maxTokens: 8192, inlineThinking: false },
+  "@cf/qwen/qwen3.8-27b": { label: "Qwen 3.8 27B", instructions: "system", maxTokens: 8192, inlineThinking: false },
+  "@cf/google/gemma-4-26b-a4b-it": { label: "Gemma 4 26B", instructions: "system", maxTokens: 8192, inlineThinking: false },
+  "@cf/meta/llama-4-scout-17b-16e-instruct": { label: "Llama 4 Scout 17B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/mistralai/mistral-small-3.1-24b-instruct": { label: "Mistral Small 3.1 24B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/aisingapore/gemma-sea-lion-v4-27b-it": { label: "SEA-LION v4 27B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/qwen/qwen2.5-coder-32b-instruct": { label: "Qwen 2.5 Coder 32B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/meta/llama-3.2-11b-vision-instruct": { label: "Llama 3.2 11B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/ibm-granite/granite-4.0-h-micro": { label: "Granite 4.0 Micro", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/utter-project/eurollm-9b-it": { label: "EuroLLM 9B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+  "@cf/swiss-ai/apertus-v1.5-8b": { label: "Apertus 1.5 8B", instructions: "system", maxTokens: 4096, inlineThinking: false },
+};
+const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
+if (!MODELS[DEFAULT_MODEL]) throw new Error(`No MODELS entry for ${DEFAULT_MODEL}`);
+const MODEL_LIST = Object.entries(MODELS).map(([id, p]) => ({ id, label: p.label, inlineThinking: p.inlineThinking, verified: !!p.verified }));
 const TURN_CAP = 7;
-// R1 reasons in <think>…</think> before answering, so it needs room for both. The browser hides the reasoning.
-const MAX_TOKENS = 4096;
-// Reasoning models get their instructions in the user message, not a system prompt (see inUserMessages).
-const REASONING_MODEL = /deepseek-r1|qwq/i.test(MODEL);
 const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
 const SSE_HEADERS = {
@@ -21,7 +46,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/commands" && request.method === "GET") {
-      return Response.json({ commands: COMMAND_LIST, turnCap: TURN_CAP, model: MODEL });
+      return Response.json({ commands: COMMAND_LIST, turnCap: TURN_CAP, models: MODEL_LIST, defaultModel: DEFAULT_MODEL });
     }
     if (url.pathname === "/api/turn" && request.method === "POST") {
       return turn(request, env);
@@ -51,13 +76,18 @@ async function turn(request, env) {
     return sseError("turn_cap", `This session has used all ${TURN_CAP} turns. Start a new session to keep going.`, 409);
   }
 
+  // The picked model applies per Turn, so a visitor can switch mid-Session.
+  const model = payload.model ?? DEFAULT_MODEL;
+  const profile = MODELS[model];
+  if (!profile) return sseError("bad_request", `Unknown model "${model}".`, 400);
+
   const instructions = systemPrompt(command, history[0].content, turnNo);
-  const messages = REASONING_MODEL ? inUserMessages(instructions, command, history, turnNo) : [{ role: "system", content: instructions }, ...history];
+  const messages = profile.instructions === "user" ? inUserMessages(instructions, command, history, turnNo) : [{ role: "system", content: instructions }, ...history];
 
   let stream;
   try {
     stream = env.AI
-      ? await env.AI.run(MODEL, { messages, stream: true, max_tokens: MAX_TOKENS })
+      ? await env.AI.run(model, { messages, stream: true, max_tokens: profile.maxTokens })
       : mockStream(command, history, turnNo);
   } catch (err) {
     return aiError(err);
@@ -65,8 +95,8 @@ async function turn(request, env) {
   return new Response(stream, { headers: SSE_HEADERS });
 }
 
-// DeepSeek R1 models follow a system prompt weakly; DeepSeek advises putting every instruction in the
-// user message. So for them: the instructions open the first user message, and the latest user message
+// For models with instructions: "user" (e.g. DeepSeek R1, which follows a system prompt weakly; DeepSeek
+// advises putting every instruction in the user message): the instructions open the first user message, and the latest user message
 // carries a reminder of the turn pacing (the first message's copy is far back by then).
 function inUserMessages(instructions, command, history, turnNo) {
   const msgs = history.map((m) => ({ ...m }));
@@ -106,7 +136,8 @@ function systemPrompt(command, firstPrompt, turnNo) {
 You are running the /${command.name} command in a browser chat at a friend's request.
 - The session is capped at ${TURN_CAP} user turns. ${pacing}
 - You have no tools: no web, no files, no scripts, no subagents. If the command says to read a URL, search, or run something, work from your own knowledge and what the user wrote, and say briefly when you are unsure instead of pretending you looked it up. If the command expects a source (a transcript, article or link) and the user gave a topic instead, work from what you know and say so in one line; if they gave only a URL you can't read, say so and work from what you know about it. Never claim to have written files.
-- Reply in clean Markdown. Follow the command's turn format and voices exactly.
+- Reply in clean Markdown. Follow the command's turn format and voices exactly, every turn.
+- On later turns, respond to the user's latest message and build on the earlier turns: add only new ideas, never repeating earlier points, phrasings or diagrams.
 - Diagrams: only draw one when it truly helps, inside a fenced \`\`\`text block. Keep it small and simple: prefer a single top-to-bottom or left-to-right chain (\`A --> B --> C\`, or one node per line with \`|\` and \`v\` between) over grids or side-by-side boxes. Use plain ASCII only (no box-drawing characters or emoji, which break monospace alignment), never tabs, and keep every vertical connector in the same column on each line. If you can't keep it aligned, use a short bulleted flow instead.`;
 }
 

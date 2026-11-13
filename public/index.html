@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>smarchone: skills</title>
 <meta name="description" content="Run smarchone/skills commands in the browser.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='5' fill='%23e8833a'/><circle cx='16' cy='16' r='11' fill='none' stroke='%23e8833a' stroke-width='2' opacity='.5'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23131419'/><rect x='.75' y='.75' width='30.5' height='30.5' rx='7.25' fill='none' stroke='%2323262e' stroke-width='1.5'/><path d='M19.5 7 12.5 25' stroke='%23aab4ff' stroke-width='3.2' stroke-linecap='round'/></svg>">">
 <style>
 :root {
   --bg: #0c0d10; --panel: #131419; --sunken: #1a1c22;
@@ -160,7 +160,7 @@ svg { display: block; flex: none; }
 .start .composer { box-shadow: var(--shadow); }
 .composer textarea { display: block; width: 100%; resize: none; border: 0; outline: none; background: transparent; padding: 9px 6px 6px; min-height: 24px; max-height: 40vh; overflow-y: auto; line-height: 1.5; color: var(--ink); font-size: 15px; }
 .start .composer textarea { font-size: 15.5px; padding-top: 11px; }
-@supports (field-sizing: content) { .composer textarea { field-sizing: content; } }
+@supports (field-sizing: content) { .composer textarea { } }
 .start .chip { top: 10px; }
 .composer textarea::placeholder { color: var(--ink-3); }
 .composer-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; padding-left: 4px; }
@@ -176,7 +176,14 @@ svg { display: block; flex: none; }
 .send:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .dock-meta, .start-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12.5px; color: var(--ink-3); min-height: 18px; }
 .dock-meta .warn, .start-meta .warn { color: var(--accent); }
-#metaRight { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#metaRight { margin-left: auto; display: flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
+#metaRight .free { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#modelPick { appearance: none; -webkit-appearance: none; font: inherit; color: var(--ink-2); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 1px 18px 1px 6px; cursor: pointer; min-width: 0; max-width: 200px; text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 4l3 3 3-3' fill='none' stroke='%237d828e' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 5px center; }
+#modelPick:hover { border-color: var(--line); color: var(--ink); }
+#modelPick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#modelPick:disabled { opacity: .6; cursor: default; }
+#modelPick option { background: var(--panel); color: var(--ink); }
 
 .banner { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-radius: 10px; font-size: 14px; background: var(--good-soft); color: var(--good); }
 .banner .grow { flex: 1; }
@@ -275,7 +282,7 @@ svg { display: block; flex: none; }
     </div>
     <div class="menu" id="popover" role="listbox"></div>
   </div>
-  <div class="dock-meta" id="meta"><span id="hint"></span><span id="metaRight"></span></div>
+  <div class="dock-meta" id="meta"><span id="hint"></span><span id="metaRight"><select id="modelPick" aria-label="Model" hidden></select><span class="free"></span></span></div>
 </div>
 <div id="toast" role="status"></div>
 
@@ -285,6 +292,7 @@ svg { display: block; flex: none; }
 const TURN_CAP_DEFAULT = 7;
 const STORE_KEY = "simple-skills.sessions";
 const CURRENT_KEY = "simple-skills.current";
+const MODEL_KEY = "simple-skills.model";
 const GITHUB = "https://github.com/smarchone/skills";
 
 // Starting points for engineers: [command, text]. Clicking fills the composer; nothing is sent.
@@ -301,11 +309,12 @@ const els = {
   scroll: $("scroll"), start: $("start"), thread: $("thread"), dock: $("dock"), side: $("side"),
   startSlot: $("startSlot"), dockSlot: $("dockSlot"), host: $("composerHost"),
   input: $("input"), chip: $("chip"), chipName: $("chipName"), send: $("sendBtn"), popover: $("popover"),
-  hint: $("hint"), metaRight: $("metaRight"), crumbs: $("crumbs"), rail: $("rail"), copy: $("copyBtn"), examples: $("examples"),
+  hint: $("hint"), metaRight: $("metaRight"), modelPick: $("modelPick"), crumbs: $("crumbs"), rail: $("rail"), copy: $("copyBtn"), examples: $("examples"),
 };
 
 const state = {
   commands: [], turnCap: TURN_CAP_DEFAULT,
+  models: [], model: "",     // picked Workers AI model id (remembered in localStorage)
   sessions: load(),          // [{id, command, title, messages:[{role,content}], createdAt, updatedAt}]
   currentId: null,
   pendingCommand: null,      // chosen in the composer before the Session starts
@@ -632,7 +641,7 @@ function submit() {
 // Reasoning models (DeepSeek R1) stream "<think>…</think>" before the answer, often without the opening
 // tag. Return only the answer: "" while still reasoning. If a stream ends with no "</think>", it had no
 // reasoning section, so the whole text is the answer (final = true).
-const isReasoningModel = () => /deepseek-r1|qwq|reason/i.test(state.model || "");
+const isReasoningModel = () => !!state.models.find((m) => m.id === state.model)?.inlineThinking; // per model, from the Worker's MODELS table
 function answerPart(text, final = false) {
   const end = text.lastIndexOf("</think>");
   if (end >= 0) return text.slice(end + 8).replace(/^\s+/, "");
@@ -643,6 +652,7 @@ function answerPart(text, final = false) {
 // ---------- the Turn: POST the whole Session, read the SSE stream ----------
 async function runTurn(s) {
   state.streaming = true;
+  els.modelPick.disabled = true; // the reply is read with this model's thinking rules
   render(); scrollToBottom();
   const said = el("div", "said"); said.innerHTML = `<span class="wait-bar"></span>Thinking`;
   let turn = turnEl("wait", null, said);
@@ -668,7 +678,7 @@ async function runTurn(s) {
     const res = await fetch("/api/turn", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ command: s.command, messages: s.messages }),
+      body: JSON.stringify({ command: s.command, messages: s.messages, model: state.model || undefined }),
     });
     if (!res.body) throw new Error("No response body");
     const reader = res.body.getReader();
@@ -718,6 +728,7 @@ async function runTurn(s) {
   }
   s.updatedAt = Date.now();
   state.streaming = false;
+  els.modelPick.disabled = false;
   save(); render(); autosize(); scrollToBottom();
   if (!isClosed(current())) els.input.focus();
 }
@@ -799,18 +810,42 @@ addEventListener("resize", autosize);
 els.copy.onclick = copyMarkdown;
 $("home").onclick = (e) => { e.preventDefault(); newSession(); };
 
+// ---------- model picker: every free Workers AI chat model the Worker lists ----------
+function renderModelPick() {
+  const pick = els.modelPick;
+  pick.replaceChildren(...state.models.map((m) => {
+    const o = el("option", null, m.verified ? m.label : `${m.label} · beta`);
+    o.value = m.id; o.title = m.id;
+    return o;
+  }));
+  pick.value = state.model;
+  pick.hidden = !state.models.length;
+  // A <select> is as wide as its longest option; fit it to the picked label instead.
+  const probe = el("span", null, pick.selectedOptions[0]?.textContent || "");
+  probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
+  els.metaRight.appendChild(probe);
+  pick.style.width = `${probe.offsetWidth + 34}px`; // + padding, border and chevron
+  probe.remove();
+  pick.title = `${state.model} via Cloudflare Workers AI. Switch any time; the next turn uses the new model.`;
+  els.metaRight.querySelector(".free").textContent = state.models.length ? "· free Cloudflare credits" : "";
+  els.metaRight.title = "Runs on Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow.";
+}
+els.modelPick.onchange = () => {
+  state.model = els.modelPick.value;
+  try { localStorage.setItem(MODEL_KEY, state.model); } catch {}
+  renderModelPick();
+};
+
 // ---------- boot ----------
 (async function boot() {
   try {
     const r = await fetch("/api/commands");
     const j = await r.json();
     state.commands = j.commands; state.turnCap = j.turnCap || TURN_CAP_DEFAULT;
-    state.model = j.model || "";
-    if (j.model) {
-      // "@cf/meta/llama-3.3-70b-instruct-fp8-fast" → "llama-3.3-70b-instruct-fp8-fast"
-      els.metaRight.textContent = `${j.model.split("/").pop()} · free Cloudflare credits`;
-      els.metaRight.title = `Runs on ${j.model} via Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow.`;
-    }
+    state.models = j.models || [];
+    let saved = ""; try { saved = localStorage.getItem(MODEL_KEY) || ""; } catch {}
+    state.model = state.models.some((m) => m.id === saved) ? saved : j.defaultModel || state.models[0]?.id || "";
+    renderModelPick();
   } catch {
     state.notice = "Couldn't load the commands. Refresh to try again.";
   }
