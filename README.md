@@ -1,49 +1,94 @@
 # cf-skills
 
 A browser chat that runs the productivity **Commands** from
-[smarchone/skills](https://github.com/smarchone/skills) on Cloudflare's free tier.
+[smarchone/skills](https://github.com/smarchone/skills): type `/feel <your idea>`, have a short streamed
+conversation (up to 7 turns), and copy the conclusion as markdown.
 
-- `public/index.html` — the whole UI (one static page). Sessions live in `localStorage`.
-- `src/worker.js` — stateless Worker. `GET /api/commands`, `POST /api/turn` (`{command, model, messages}` → SSE).
-- Builds the system prompt from the Command + Turn cap note, refuses an 8th Turn (at limit), and streams the chosen **Model**'s reply in one shape whatever its kind:
-  - **Claude** (`CLAUDE_MODELS`: Haiku 5.5 default, Sonnet 5.5) through the Anthropic Messages API with the owner's key; the Command's system prompt is prompt-cached. Out of credits / rate-limited → "Claude's budget is used up — start a new session on a Workers AI model or come back later."
-  - **Workers AI** (every free chat model) through the `AI` binding. Daily limit → "back tomorrow".
-- The Model is picked in the dropdown before a Session starts and locked for it (stored on the Session). Claude models are listed only when the key is set.
-- `src/commands.js` + `commands/*.md` — the showcased Commands (chatxy, few-shot, intuition-panel, origin-story, report-panel), copied from the skills repo. 
-- The Worker never fetches; report-panel works on a topic or pasted text.
+It runs on **Cloudflare** (Workers free plan) or on **any server with Node 22+**. Both run the same
+stateless Worker; sessions live only in the visitor's browser (`localStorage`).
 
-## Run
+## Models
+
+A Model is picked in the dropdown before a Session starts and is locked for that Session. Only Models whose
+credentials are configured are offered.
+
+| Kind | Models | Needs | Budget runs out → |
+|---|---|---|---|
+| **Claude** (default) | Claude Haiku 5.5 (default), Claude Sonnet 5.5 | `ANTHROPIC_API_KEY` | "Claude's budget is used up — start a new session on a Workers AI model or come back later." (no Workers AI mention when it isn't offered) |
+| **Workers AI** (free) | GLM 4.7 Flash, Llama 3.3 70B, gpt-oss, Qwen, Gemma, … | the `AI` binding on Cloudflare, or `CF_ACCOUNT_ID` + `CF_API_TOKEN` elsewhere | "come back tomorrow" (daily free allowance) |
+
+Claude is called through the Anthropic Messages API with the owner's key; its low credit balance is the
+spending ceiling. Credit and rate-limit errors are shown as Budget out, not failures, and the Session is
+kept so it can continue later.
+
+## Run locally
 
 ```sh
 npm install
-npm run dev:mock    # no Cloudflare login needed: fake streamed replies; type "#budget" to simulate the Model's Budget running out
-npx wrangler login
-echo 'ANTHROPIC_API_KEY=sk-ant-...' > .dev.vars   # local Claude (gitignored)
-npm run dev         # real Workers AI (remote binding) + Claude
-npx wrangler secret put ANTHROPIC_API_KEY        # once, for the deployed Worker
-npm run deploy      # → https://skills.<you>.workers.dev
+npm run dev:mock      # fake streamed replies for every Model, no keys or login needed
+                      # type "#budget" in a message to see the Budget-out message
 ```
 
-To add a Command: drop its `.md` into `commands/` and add an import line in `src/commands.js`.
-
-## Run off Cloudflare (any server)
-
-`server/server.mjs` runs the same `src/worker.js` on plain Node (22+, no extra dependencies). It stands in
-for what Cloudflare provides: the runtime (node:http ↔ `fetch(request, env)`), static assets (`public/`),
-the Workers AI binding (its REST API, with a Cloudflare token) and the `.md` text imports (`server/md-text.mjs`).
+## Deploy on Cloudflare
 
 ```sh
-cat > .env <<'ENV'          # gitignored; set either kind, or both
-ANTHROPIC_API_KEY=sk-ant-...
-CF_ACCOUNT_ID=...           # Workers AI models (still the free daily allowance)
-CF_API_TOKEN=...            # token with "Workers AI: Read"
-ENV
-npm start                   # → http://localhost:8787 (PORT to change)
-npm run start:mock          # fake replies, no keys
+npx wrangler login
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .dev.vars   # for local dev (gitignored)
+npm run dev                                       # real Workers AI (remote binding) + Claude
+npx wrangler secret put ANTHROPIC_API_KEY         # once, for the deployed Worker
+npm run deploy                                    # → https://skills.<you>.workers.dev
+```
 
+## Deploy on your own server
+
+`server/server.mjs` runs the same `src/worker.js` on plain Node (22+, no extra dependencies). Workers AI is
+optional: with only `ANTHROPIC_API_KEY` set, the server offers Claude alone.
+
+```sh
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env        # gitignored
+npm start                                         # → http://localhost:8787
+npm run start:mock                                # fake replies, no keys
+
+# or with Docker
 docker build -t skills . && docker run -p 8787:8787 --env-file .env skills
 ```
 
-Only the Models with credentials are offered: a private server can run Claude alone (just `ANTHROPIC_API_KEY`), and then nothing mentions Workers AI. Put it behind a TLS proxy (Caddy, nginx) that doesn't buffer
-`text/event-stream` responses and allows long idle times, so replies stream token by token.
+Put it behind a TLS proxy (Caddy, nginx) that doesn't buffer `text/event-stream` responses and allows long
+idle times, otherwise replies arrive all at once or get cut off.
 
+### Server environment
+
+| Variable | Purpose |
+|---|---|
+| `ANTHROPIC_API_KEY` | Enables the Claude Models |
+| `CF_ACCOUNT_ID`, `CF_API_TOKEN` | Optional. Enable the Workers AI Models through Cloudflare's REST API (token needs "Workers AI: Read"); still the free daily allowance |
+| `PORT` | Default `8787` |
+| `MOCK_AI=1` | Fake streamed replies for every Model |
+
+## How it works
+
+```
+ browser (localStorage)                       Worker (stateless)
+ Session: Command + Model (locked), turn n/7  ── POST /api/turn {command, model, messages} ──▶
+                                              system = Command body + Turn cap note
+                                              refuse turn > 7
+                                              Model seam ─┬─ Claude (Anthropic Messages API)
+                          ◀── SSE: data: {"response": "..."} ─┴─ Workers AI
+```
+
+- `public/index.html` — the whole UI (one static page): `/` command picker, model dropdown, sessions sidebar, copy as markdown.
+- `src/worker.js` — the Worker. `GET /api/commands` (commands, models, turn cap), `POST /api/turn` (→ SSE).
+  Builds the system prompt (cached on Claude, since every Turn resends it), enforces the 7-turn cap, and streams
+  every Model's reply in the same shape. Models are listed in `CLAUDE_MODELS` and `MODELS`.
+- `src/commands.js` + `commands/*.md` — the Commands (chatxy, few-shot, intuition-panel, origin-story,
+  report-panel), copied from the skills repo. They run as pure inference: the Worker never fetches, so
+  report-panel works on a topic or pasted text.
+- `server/` — the self-hosting adapter: `server.mjs` (Node HTTP ↔ the Worker's `fetch`, static files,
+  Workers AI over REST) and `md-text.mjs` / `md-hooks.mjs` (import `.md` files as text, as wrangler does).
+
+## Extending
+
+- **Add a Command:** drop its `.md` into `commands/` and add an import line in `src/commands.js`.
+- **Add a Claude Model:** add an entry to `CLAUDE_MODELS` in `src/worker.js` (`label`, `maxTokens`, `effort`).
+- **Add a Workers AI Model:** add an entry to `MODELS`; refresh the list with
+  `npx wrangler ai models list --task "Text Generation" --json`.
