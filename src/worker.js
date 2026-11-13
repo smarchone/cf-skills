@@ -70,10 +70,12 @@ async function turn(request, env) {
 // carries a reminder of the turn pacing (the first message's copy is far back by then).
 function inUserMessages(instructions, command, history, turnNo) {
   const msgs = history.map((m) => ({ ...m }));
-  msgs[0].content = `${instructions}\n\n---\n\n## The user's message\n\n${msgs[0].content}`;
+  // Small reasoning models answer whatever they read last, so the format reminder closes the message.
+  const reminder = `You are running /${command.name}. Do not answer the topic directly. While thinking, plan your reply in the command's format (its voices, order and length); then write the reply in exactly that format. If the command has an "Output format", your reply must start the way it shows.`;
+  msgs[0].content = `${instructions}\n\n---\n\n## What the user brought to /${command.name}\n\n${msgs[0].content}\n\n---\n\n${reminder}`;
   if (msgs.length > 1) {
     const last = msgs[msgs.length - 1];
-    last.content = `${last.content}\n\n(Session note: ${pacingNote(turnNo)} Keep following the /${command.name} format from the first message.)`;
+    last.content = `${last.content}\n\n(Session note: ${pacingNote(turnNo)} ${reminder})`;
   }
   return msgs;
 }
