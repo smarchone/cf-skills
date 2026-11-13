@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simple Skills</title>
+<meta name="description" content="Run smarchone/skills productivity commands in the browser.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237c8cff'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='monospace'>/</text></svg>">
+<style>
+:root {
+  --bg: #0e0f13; --panel: #15171d; --panel-2: #1b1e26; --line: #262a35;
+  --text: #e6e8ee; --muted: #8b90a0; --accent: #7c8cff; --accent-2: #a5b0ff;
+  --accent-bg: rgba(124,140,255,.14); --warn: #f0b45a; --warn-bg: rgba(240,180,90,.1);
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.6 var(--sans); display: flex; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: var(--accent-2); }
+
+/* Sidebar */
+#sidebar { width: 260px; flex: none; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.brand { padding: 18px 16px 10px; font-weight: 600; letter-spacing: .2px; display: flex; align-items: center; gap: 8px; }
+.brand .slash { font-family: var(--mono); color: var(--accent); font-size: 18px; }
+#newBtn { margin: 4px 12px 12px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; text-align: left; color: var(--text); }
+#newBtn:hover { background: var(--panel-2); }
+.side-label { padding: 6px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
+#sessionList { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+.sess { display: flex; align-items: center; width: 100%; padding: 8px 10px; border-radius: 8px; text-align: left; gap: 6px; }
+.sess:hover, .sess.active { background: var(--panel-2); }
+.sess .meta { flex: 1; min-width: 0; }
+.sess .cmd { font-family: var(--mono); font-size: 12px; color: var(--accent-2); }
+.sess .first { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sess .del { opacity: 0; color: var(--muted); padding: 2px 6px; border-radius: 6px; }
+.sess:hover .del { opacity: 1; }
+.sess .del:hover { color: var(--text); background: var(--line); }
+.side-foot { padding: 12px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); }
+
+/* Main */
+#main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+header { height: 54px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+#menuBtn { display: none; font-size: 18px; color: var(--muted); }
+#hdrCmd { font-family: var(--mono); color: var(--accent-2); background: var(--accent-bg); padding: 2px 10px; border-radius: 999px; font-size: 13px; }
+#hdrTitle { flex: 1; min-width: 0; color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hdrTurn { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.ghost { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.ghost:hover { color: var(--text); background: var(--panel-2); }
+
+#scroll { flex: 1; overflow-y: auto; }
+#thread { max-width: 760px; margin: 0 auto; padding: 28px 20px 40px; }
+.msg { margin: 0 0 22px; }
+.msg.user { display: flex; justify-content: flex-end; }
+.msg.user .bubble { background: var(--panel-2); border: 1px solid var(--line); padding: 10px 14px; border-radius: 14px 14px 4px 14px; max-width: 85%; white-space: pre-wrap; word-wrap: break-word; }
+.msg.user .chip { font-family: var(--mono); color: var(--accent-2); margin-right: 6px; }
+.msg.assistant .md { word-wrap: break-word; }
+.md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3 { line-height: 1.3; margin: 1.2em 0 .5em; }
+.md h1 { font-size: 1.35em; } .md h2 { font-size: 1.2em; } .md h3 { font-size: 1.05em; }
+.md code { font-family: var(--mono); font-size: .88em; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; }
+.md pre { background: var(--panel); border: 1px solid var(--line); padding: 12px 14px; border-radius: 10px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { margin: 0; padding-left: 14px; border-left: 3px solid var(--line); color: var(--muted); }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--line); padding: 6px 10px; }
+.md hr { border: 0; border-top: 1px solid var(--line); }
+.cursor::after { content: "▍"; color: var(--accent); animation: blink 1s steps(1) infinite; margin-left: 2px; }
+@keyframes blink { 50% { opacity: 0; } }
+.thinking { color: var(--muted); font-size: 14px; }
+.notice { border: 1px solid var(--warn); background: var(--warn-bg); color: var(--warn); padding: 10px 14px; border-radius: 10px; font-size: 14px; margin-bottom: 22px; }
+
+.closing { border: 1px solid var(--line); background: var(--panel); border-radius: 14px; padding: 18px; margin-top: 8px; }
+.closing h3 { margin: 0 0 4px; font-size: 15px; }
+.closing p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.closing .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 8px 14px; border-radius: 9px; background: var(--accent); color: #0b0c10; font-weight: 600; font-size: 14px; }
+.btn:hover { background: var(--accent-2); }
+.btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); font-weight: 500; }
+.closing .small { margin-top: 12px; font-size: 12px; color: var(--muted); }
+
+/* Empty state */
+.empty { text-align: center; padding-top: 12vh; }
+.empty h1 { font-size: 26px; margin: 0 0 6px; font-weight: 600; }
+.empty p { color: var(--muted); margin: 0 0 22px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; text-align: left; }
+.card { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 12px 14px; }
+.card:hover { border-color: var(--accent); }
+.card .n { font-family: var(--mono); color: var(--accent-2); font-size: 13px; }
+.card .d { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; }
+
+/* Composer */
+#composerWrap { flex: none; padding: 0 20px 18px; }
+#composer { position: relative; max-width: 760px; margin: 0 auto; }
+#box { display: flex; align-items: flex-end; gap: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 10px 10px 14px; }
+#box:focus-within { border-color: #3a4052; }
+#chip { display: none; flex: none; font-family: var(--mono); font-size: 14px; color: var(--accent-2); background: var(--accent-bg); border-radius: 7px; padding: 2px 8px; margin-bottom: 3px; }
+#chip.on { display: inline-block; }
+#input { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--text); font: inherit; max-height: 220px; padding: 3px 0; }
+#input::placeholder { color: var(--muted); }
+#sendBtn { flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--accent); color: #0b0c10; font-size: 16px; font-weight: 700; }
+#sendBtn:disabled { background: var(--line); color: var(--muted); cursor: default; }
+#hint { min-height: 18px; font-size: 12px; color: var(--muted); padding: 6px 4px 0; }
+
+#popover { display: none; position: absolute; bottom: calc(100% + 8px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; box-shadow: 0 16px 40px rgba(0,0,0,.45); max-height: 340px; overflow-y: auto; z-index: 5; }
+#popover.on { display: block; }
+.opt { display: flex; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; align-items: flex-start; }
+.opt.sel { background: var(--panel-2); }
+.opt .body { flex: 1; min-width: 0; }
+.opt .n { font-family: var(--mono); color: var(--accent-2); font-size: 14px; }
+.opt .d { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.opt .src { font-size: 12px; white-space: nowrap; color: var(--muted); text-decoration: none; padding-top: 2px; }
+.opt .src:hover { color: var(--accent-2); }
+.pop-empty { padding: 10px; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 760px) {
+  #sidebar { position: fixed; inset: 0 auto 0 0; z-index: 10; transform: translateX(-100%); transition: transform .2s; }
+  body.side-open #sidebar { transform: none; }
+  #menuBtn { display: block; }
+  header { padding: 0 16px; }
+  #thread { padding: 20px 16px 32px; }
+  #composerWrap { padding: 0 16px 14px; }
+  #hdrTitle { display: none; }
+}
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <div class="brand"><span class="slash">/</span> simple skills</div>
+  <button id="newBtn">+ New session</button>
+  <div class="side-label">Recent</div>
+  <nav id="sessionList"></nav>
+  <div class="side-foot">Commands from <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener">smarchone/skills</a>. Sessions live only in this browser.</div>
+</aside>
+
+<main id="main">
+  <header>
+    <button id="menuBtn" aria-label="Sessions">☰</button>
+    <span id="hdrCmd" hidden></span>
+    <span id="hdrTitle"></span>
+    <span id="hdrTurn"></span>
+    <button id="copyBtn" class="ghost" hidden>Copy markdown</button>
+  </header>
+  <div id="scroll"><div id="thread"></div></div>
+  <div id="composerWrap">
+    <div id="composer">
+      <div id="popover" role="listbox"></div>
+      <div id="box">
+        <span id="chip"></span>
+        <textarea id="input" rows="1" placeholder="Type / to pick a command"></textarea>
+        <button id="sendBtn" aria-label="Send" disabled>↑</button>
+      </div>
+      <div id="hint"></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script>
+const TURN_CAP_DEFAULT = 7;
+const STORE_KEY = "simple-skills.sessions";
+const CURRENT_KEY = "simple-skills.current";
+const GITHUB = "https://github.com/smarchone/skills";
+
+const $ = (id) => document.getElementById(id);
+const els = {
+  thread: $("thread"), scroll: $("scroll"), input: $("input"), chip: $("chip"), send: $("sendBtn"),
+  popover: $("popover"), hint: $("hint"), list: $("sessionList"), hdrCmd: $("hdrCmd"),
+  hdrTitle: $("hdrTitle"), hdrTurn: $("hdrTurn"), copy: $("copyBtn"),
+};
+
+const state = {
+  commands: [], turnCap: TURN_CAP_DEFAULT,
+  sessions: load(),          // [{id, command, title, messages:[{role,content}], createdAt, updatedAt}]
+  currentId: null,
+  pendingCommand: null,      // command chosen in the composer before the Session starts
+  popIndex: 0, popItems: [],
+  streaming: false,
+  notice: null,
+};
+
+// ---------- storage ----------
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; }
+}
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state.sessions));
+    localStorage.setItem(CURRENT_KEY, state.currentId || "");
+  } catch {}
+}
+const current = () => state.sessions.find((s) => s.id === state.currentId) || null;
+const userTurns = (s) => s ? s.messages.filter((m) => m.role === "user").length : 0;
+const isClosed = (s) => s && userTurns(s) >= state.turnCap && s.messages.at(-1)?.role === "assistant";
+const cmdInfo = (name) => state.commands.find((c) => c.name === name);
+
+// ---------- markdown ----------
+marked.setOptions({ gfm: true, breaks: false });
+const md = (text) => DOMPurify.sanitize(marked.parse(text || ""));
+
+// ---------- render ----------
+function render() {
+  const s = current();
+  renderSidebar();
+  renderHeader(s);
+  renderThread(s);
+  renderComposer(s);
+}
+
+function renderSidebar() {
+  els.list.innerHTML = "";
+  const sorted = [...state.sessions].sort((a, b) => b.updatedAt - a.updatedAt);
+  if (!sorted.length) els.list.innerHTML = `<div class="side-label" style="text-transform:none;letter-spacing:0">No sessions yet.</div>`;
+  for (const s of sorted) {
+    const row = document.createElement("div");
+    row.className = "sess" + (s.id === state.currentId ? " active" : "");
+    row.innerHTML = `<div class="meta"><div class="cmd"></div><div class="first"></div></div><button class="del" title="Delete">×</button>`;
+    row.querySelector(".cmd").textContent = `/${s.command} · ${Math.min(userTurns(s), state.turnCap)}/${state.turnCap}`;
+    row.querySelector(".first").textContent = s.title;
+    row.style.cursor = "pointer";
+    row.onclick = () => openSession(s.id);
+    row.querySelector(".del").onclick = (e) => {
+      e.stopPropagation();
+      state.sessions = state.sessions.filter((x) => x.id !== s.id);
+      if (state.currentId === s.id) state.currentId = null;
+      save(); render();
+    };
+    els.list.appendChild(row);
+  }
+}
+
+function renderHeader(s) {
+  els.hdrCmd.hidden = !s;
+  els.copy.hidden = !s || !s.messages.some((m) => m.role === "assistant");
+  if (!s) { els.hdrTitle.textContent = ""; els.hdrTurn.textContent = ""; return; }
+  els.hdrCmd.textContent = "/" + s.command;
+  els.hdrTitle.textContent = s.title;
+  els.hdrTurn.textContent = isClosed(s) ? "complete" : `turn ${Math.max(1, Math.min(userTurns(s), state.turnCap))} / ${state.turnCap}`;
+}
+
+function renderThread(s) {
+  els.thread.innerHTML = "";
+  if (!s) {
+    if (state.notice) { const n = document.createElement("div"); n.className = "notice"; n.textContent = state.notice; els.thread.appendChild(n); }
+    return renderEmpty();
+  }
+  s.messages.forEach((m, i) => {
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+    if (m.role === "user") {
+      const b = document.createElement("div");
+      b.className = "bubble";
+      if (i === 0) { const c = document.createElement("span"); c.className = "chip"; c.textContent = "/" + s.command; b.appendChild(c); }
+      b.appendChild(document.createTextNode(m.content));
+      div.appendChild(b);
+    } else {
+      div.innerHTML = `<div class="md">${md(m.content)}</div>`;
+    }
+    els.thread.appendChild(div);
+  });
+  if (state.notice) {
+    const n = document.createElement("div");
+    n.className = "notice"; n.textContent = state.notice;
+    els.thread.appendChild(n);
+  }
+  if (isClosed(s)) els.thread.appendChild(closingCard(s));
+}
+
+function renderEmpty() {
+  const wrap = document.createElement("div");
+  wrap.className = "empty";
+  wrap.innerHTML = `<h1>Run a command on your idea</h1><p>Type <code style="font-family:var(--mono);color:var(--accent-2)">/</code> and pick one. Each session is ${state.turnCap} turns and ends with something to keep.</p><div class="cards"></div>`;
+  const cards = wrap.querySelector(".cards");
+  for (const c of state.commands) {
+    const card = document.createElement("button");
+    card.className = "card";
+    card.innerHTML = `<div class="n"></div><div class="d"></div>`;
+    card.querySelector(".n").textContent = "/" + c.name;
+    card.querySelector(".d").textContent = c.description;
+    card.onclick = () => chooseCommand(c.name);
+    cards.appendChild(card);
+  }
+  els.thread.appendChild(wrap);
+}
+
+function closingCard(s) {
+  const card = document.createElement("div");
+  card.className = "closing";
+  card.innerHTML = `
+    <h3>Session complete</h3>
+    <p>/${s.command} ran its ${state.turnCap} turns. Keep the result.</p>
+    <div class="row"><button class="btn" data-a="copy">Copy as markdown</button><button class="btn secondary" data-a="new">New session</button></div>
+    <div class="small">These commands run locally too → <a href="${GITHUB}" target="_blank" rel="noopener">GitHub</a></div>`;
+  card.querySelector('[data-a="copy"]').onclick = (e) => copyMarkdown(e.target);
+  card.querySelector('[data-a="new"]').onclick = newSession;
+  return card;
+}
+
+function renderComposer(s) {
+  const closed = isClosed(s);
+  els.chip.classList.toggle("on", !s && !!state.pendingCommand);
+  els.chip.textContent = state.pendingCommand ? "/" + state.pendingCommand : "";
+  els.input.disabled = closed || state.streaming;
+  if (closed) els.input.placeholder = "Session complete — start a new session to run another command";
+  else if (s) els.input.placeholder = `Reply to /${s.command}…`;
+  else if (state.pendingCommand) els.input.placeholder = cmdInfo(state.pendingCommand)?.hint || "Your idea, question or topic…";
+  else els.input.placeholder = "Type / to pick a command";
+  updateSend();
+  updateHint();
+}
+
+function updateSend() {
+  const s = current();
+  const text = els.input.value.trim();
+  const ok = !state.streaming && !isClosed(s) && text.length > 0 &&
+    (s || state.pendingCommand || parseSlash(els.input.value));
+  els.send.disabled = !ok;
+}
+
+function updateHint() {
+  const s = current();
+  const v = els.input.value;
+  if (s && !isClosed(s) && v.startsWith("/")) {
+    els.hint.textContent = `This session runs /${s.command} — start a new session to switch.`;
+  } else if (s && !isClosed(s)) {
+    const left = state.turnCap - userTurns(s);
+    els.hint.textContent = left === 1 ? "Last turn — the command will conclude." : `${left} turns left · Enter to send, Shift+Enter for a new line`;
+  } else if (!s && state.pendingCommand) {
+    els.hint.textContent = "Enter to start the session · Backspace on empty to change command";
+  } else {
+    els.hint.textContent = "";
+  }
+}
+
+// ---------- command picker ----------
+function parseSlash(v) {
+  const m = v.match(/^\/([\w-]+)(?:\s+([\s\S]*))?$/);
+  if (!m || !cmdInfo(m[1])) return null;
+  return { name: m[1], rest: (m[2] || "") };
+}
+
+function openPopover(filter) {
+  const f = filter.toLowerCase();
+  state.popItems = state.commands.filter((c) => c.name.includes(f));
+  state.popIndex = Math.min(state.popIndex, Math.max(0, state.popItems.length - 1));
+  els.popover.innerHTML = "";
+  if (!state.popItems.length) {
+    els.popover.innerHTML = `<div class="pop-empty">No command matches “/${filter.replace(/[<>&]/g, "")}”.</div>`;
+  }
+  state.popItems.forEach((c, i) => {
+    const o = document.createElement("div");
+    o.className = "opt" + (i === state.popIndex ? " sel" : "");
+    o.setAttribute("role", "option");
+    o.innerHTML = `<div class="body"><div class="n"></div><div class="d"></div></div><a class="src" target="_blank" rel="noopener">view source ↗</a>`;
+    o.querySelector(".n").textContent = "/" + c.name;
+    o.querySelector(".d").textContent = c.description;
+    o.querySelector(".src").href = c.source;
+    o.querySelector(".src").onmousedown = (e) => e.stopPropagation();
+    o.onmousedown = (e) => { if (e.target.closest(".src")) return; e.preventDefault(); chooseCommand(c.name); };
+    o.onmouseenter = () => { state.popIndex = i; highlight(); };
+    els.popover.appendChild(o);
+  });
+  els.popover.classList.add("on");
+  els.popover.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
+}
+function highlight() {
+  [...els.popover.children].forEach((o, i) => o.classList.toggle("sel", i === state.popIndex));
+  els.popover.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
+}
+const closePopover = () => els.popover.classList.remove("on");
+const popoverOpen = () => els.popover.classList.contains("on");
+
+function chooseCommand(name) {
+  if (current()) { state.currentId = null; state.notice = null; save(); }
+  state.pendingCommand = name;
+  const parsed = parseSlash(els.input.value);
+  els.input.value = parsed ? parsed.rest : (els.input.value.startsWith("/") ? "" : els.input.value);
+  closePopover();
+  render();
+  els.input.focus();
+  autosize();
+}
+
+// Popover shows only before a Session starts, when the input is "/word" with no space yet.
+function syncPopover() {
+  const v = els.input.value;
+  if (!current() && !state.pendingCommand && /^\/[\w-]*$/.test(v)) openPopover(v.slice(1));
+  else closePopover();
+}
+
+// ---------- sessions ----------
+function newSession() {
+  state.currentId = null; state.pendingCommand = null; state.notice = null;
+  els.input.value = "";
+  save(); render(); els.input.focus();
+  document.body.classList.remove("side-open");
+}
+function openSession(id) {
+  if (state.streaming) return;
+  state.currentId = id; state.pendingCommand = null; state.notice = null;
+  els.input.value = "";
+  save(); render(); scrollToBottom();
+  document.body.classList.remove("side-open");
+}
+
+function submit() {
+  if (els.send.disabled) {
+    // No plain chat: a first message without a command opens the picker.
+    if (!current() && !state.pendingCommand && els.input.value.trim() && !els.input.value.startsWith("/")) {
+      els.input.value = "/"; syncPopover(); updateSend();
+    }
+    return;
+  }
+  let s = current();
+  let text = els.input.value.trim();
+  if (!s) {
+    let command = state.pendingCommand;
+    if (!command) { const p = parseSlash(text); command = p.name; text = p.rest.trim(); }
+    if (!text) return;
+    s = { id: crypto.randomUUID(), command, title: text.split("\n")[0].slice(0, 80), messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+    state.sessions.push(s);
+    state.currentId = s.id;
+    state.pendingCommand = null;
+  }
+  s.messages.push({ role: "user", content: text });
+  s.updatedAt = Date.now();
+  state.notice = null;
+  els.input.value = ""; autosize();
+  save(); render(); scrollToBottom();
+  runTurn(s);
+}
+
+// ---------- the Turn: POST the whole Session, read the SSE stream ----------
+async function runTurn(s) {
+  state.streaming = true;
+  renderComposer(s);
+  const holder = document.createElement("div");
+  holder.className = "msg assistant";
+  holder.innerHTML = `<div class="md thinking cursor">/${s.command} is thinking</div>`;
+  els.thread.appendChild(holder);
+  scrollToBottom();
+  const mdEl = holder.querySelector(".md");
+
+  let reply = "", errorInfo = null, raf = 0;
+  const paint = () => {
+    raf = 0;
+    const nearBottom = els.scroll.scrollHeight - els.scroll.scrollTop - els.scroll.clientHeight < 80;
+    mdEl.className = "md cursor";
+    mdEl.innerHTML = md(reply);
+    if (nearBottom) scrollToBottom();
+  };
+
+  try {
+    const res = await fetch("/api/turn", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ command: s.command, messages: s.messages }),
+    });
+    if (!res.body) throw new Error("No response body");
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    outer: while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const evt = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        let name = "message", data = "";
+        for (const line of evt.split("\n")) {
+          if (line.startsWith("event:")) name = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trimStart();
+        }
+        if (!data) continue;
+        if (data === "[DONE]") break outer;
+        let obj; try { obj = JSON.parse(data); } catch { continue; }
+        if (name === "error") { errorInfo = obj; break outer; }
+        const piece = obj.response ?? obj.choices?.[0]?.delta?.content ?? "";
+        if (piece) { reply += piece; if (!raf) raf = requestAnimationFrame(paint); }
+      }
+    }
+    if (!res.ok && !errorInfo) errorInfo = { kind: "http", message: `The server answered ${res.status}. Try again.` };
+  } catch (err) {
+    if (!reply) errorInfo = { kind: "network", message: "Couldn't reach the server. Check your connection and send again." };
+  }
+  cancelAnimationFrame(raf);
+
+  if (reply.trim() && !errorInfo) {
+    s.messages.push({ role: "assistant", content: reply });
+  } else {
+    // Keep the Session; put the failed message back in the input so it can be resent later.
+    const failed = s.messages.pop();
+    if (!s.messages.length) {
+      state.sessions = state.sessions.filter((x) => x.id !== s.id);
+      state.currentId = null;
+      state.pendingCommand = s.command;
+    }
+    els.input.value = failed?.content || "";
+    state.notice = errorInfo?.message || "The model returned an empty reply. Try sending again.";
+  }
+  s.updatedAt = Date.now();
+  state.streaming = false;
+  save(); render(); autosize(); scrollToBottom();
+  els.input.focus();
+}
+
+// ---------- copy ----------
+function toMarkdown(s) {
+  const out = [`# /${s.command} — ${s.title}`, ""];
+  s.messages.forEach((m, i) => {
+    if (m.role === "user") out.push(`**You:** ${i === 0 ? "/" + s.command + " " : ""}${m.content}`, "");
+    else out.push(m.content, "", "---", "");
+  });
+  out.push(`_Run with /${s.command} from ${GITHUB}_`);
+  return out.join("\n");
+}
+async function copyMarkdown(btn) {
+  const s = current(); if (!s) return;
+  try { await navigator.clipboard.writeText(toMarkdown(s)); } catch {
+    const ta = document.createElement("textarea"); ta.value = toMarkdown(s); document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  const old = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => (btn.textContent = old), 1400);
+}
+
+// ---------- input wiring ----------
+function autosize() { els.input.style.height = "auto"; els.input.style.height = Math.min(els.input.scrollHeight, 220) + "px"; }
+function scrollToBottom() { els.scroll.scrollTop = els.scroll.scrollHeight; }
+
+els.input.addEventListener("input", () => {
+  // "/feel " typed in full (with a space) becomes the chip.
+  if (!current() && !state.pendingCommand) {
+    const p = parseSlash(els.input.value);
+    if (p && /^\/[\w-]+\s/.test(els.input.value)) { chooseCommand(p.name); els.input.value = p.rest; }
+  }
+  syncPopover(); autosize(); updateSend(); updateHint();
+});
+
+els.input.addEventListener("keydown", (e) => {
+  if (popoverOpen()) {
+    if (e.key === "ArrowDown") { e.preventDefault(); state.popIndex = (state.popIndex + 1) % Math.max(1, state.popItems.length); highlight(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); state.popIndex = (state.popIndex - 1 + state.popItems.length) % Math.max(1, state.popItems.length); highlight(); return; }
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const c = state.popItems[state.popIndex]; if (c) chooseCommand(c.name); return; }
+    if (e.key === "Escape") { e.preventDefault(); closePopover(); return; }
+  }
+  if (e.key === "Backspace" && !current() && state.pendingCommand && els.input.selectionStart === 0 && els.input.selectionEnd === 0) {
+    e.preventDefault();
+    const name = state.pendingCommand;
+    state.pendingCommand = null;
+    els.input.value = "/" + name + els.input.value;
+    renderComposer(null); syncPopover();
+    els.input.setSelectionRange(name.length + 1, name.length + 1);
+    return;
+  }
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+});
+els.input.addEventListener("blur", () => setTimeout(closePopover, 120));
+els.input.addEventListener("focus", syncPopover);
+els.send.onclick = submit;
+$("newBtn").onclick = newSession;
+els.copy.onclick = () => copyMarkdown(els.copy);
+$("menuBtn").onclick = () => document.body.classList.toggle("side-open");
+els.scroll.addEventListener("click", () => document.body.classList.remove("side-open"));
+
+// ---------- boot ----------
+(async function boot() {
+  try {
+    const r = await fetch("/api/commands");
+    const j = await r.json();
+    state.commands = j.commands; state.turnCap = j.turnCap || TURN_CAP_DEFAULT;
+  } catch {
+    state.notice = "Couldn't load the commands. Refresh to try again.";
+  }
+  const saved = localStorage.getItem(CURRENT_KEY);
+  if (saved && state.sessions.some((s) => s.id === saved)) state.currentId = saved;
+  render(); scrollToBottom(); els.input.focus();
+})();
+</script>
+</body>
+</html>
