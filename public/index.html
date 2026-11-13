@@ -423,9 +423,12 @@ function voiceColor(who) {
   return voiceColors.get(k);
 }
 
-// Fill a reply body: plain markdown, or one block per speaker with the name in the margin.
-function paintReply(body, text) {
-  const segs = parseVoices(text);
+// Commands whose replies speak as several roles; every other command replies as a single report.
+const MULTI_VOICE = new Set(["intuition-panel"]);
+
+// Fill a reply body: plain markdown, or (multi-role commands only) one block per speaker with the name in the margin.
+function paintReply(body, text, command) {
+  const segs = MULTI_VOICE.has(command) ? parseVoices(text) : null;
   if (!segs) { body.innerHTML = `<div class="md">${md(text)}</div>`; return; }
   body.innerHTML = "";
   let prev = null;
@@ -453,7 +456,7 @@ function renderThread(s) {
       said.appendChild(document.createTextNode(m.content));
       els.thread.appendChild(turnEl("you", "You", said));
     } else {
-      const body = el("div", "reply"); paintReply(body, m.content);
+      const body = el("div", "reply"); paintReply(body, m.content, s.command);
       els.thread.appendChild(turnEl("reply", null, body));
     }
   });
@@ -627,7 +630,7 @@ async function runTurn(s) {
       turn.replaceWith(t); turn = t;
     }
     const nearBottom = els.scroll.scrollHeight - els.scroll.scrollTop - els.scroll.clientHeight < 120;
-    paintReply(body, reply);
+    paintReply(body, reply, s.command);
     if (nearBottom) scrollToBottom();
   };
 
