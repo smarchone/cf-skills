@@ -534,7 +534,7 @@ function closingBanner() {
 function updateSend() {
   const s = current();
   const text = els.input.value.trim();
-  els.send.disabled = !(!state.streaming && !isClosed(s) && text.length > 0 && (s || state.pendingCommand || parseSlash(els.input.value)));
+  els.send.disabled = !(state.models.length && !state.streaming && !isClosed(s) && text.length > 0 && (s || state.pendingCommand || parseSlash(els.input.value)));
 }
 
 // Speak only when it matters.
@@ -604,6 +604,9 @@ function syncPopover() {
 }
 
 // ---------- sessions ----------
+// crypto.randomUUID() exists only on secure origins (HTTPS / localhost); a self-hosted server on plain http
+// gets the getRandomValues fallback, which works everywhere.
+const newId = () => crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
 function newSession() {
   if (state.streaming) return;
   state.currentId = null; state.pendingCommand = null; state.notice = null;
@@ -630,7 +633,7 @@ function submit() {
     let command = state.pendingCommand;
     if (!command) { const p = parseSlash(text); command = p.name; text = p.rest.trim(); }
     if (!text) return;
-    s = { id: crypto.randomUUID(), command, model: state.model, title: text.split("\n")[0].slice(0, 80), messages: [], createdAt: Date.now(), updatedAt: Date.now() };
+    s = { id: newId(), command, model: state.model, title: text.split("\n")[0].slice(0, 80), messages: [], createdAt: Date.now(), updatedAt: Date.now() };
     state.sessions.push(s);
     state.currentId = s.id;
     state.pendingCommand = null;
@@ -872,6 +875,7 @@ els.modelPick.onchange = () => {
     let saved = ""; try { saved = localStorage.getItem(MODEL_KEY) || ""; } catch {}
     state.model = state.models.some((m) => m.id === saved) ? saved : j.defaultModel || state.models[0]?.id || "";
     renderModelPick();
+    if (!state.models.length) state.notice = "No models are set up on this server yet, so chats can't start. Check back soon.";
   } catch {
     state.notice = "Couldn't load the commands. Refresh to try again.";
   }
