@@ -7,6 +7,7 @@
 //
 // Env (from the process, or a .env file via `npm start`):
 //   PORT                   default 8787
+//   HOST                   default all interfaces; set 127.0.0.1 behind a reverse proxy
 //   ANTHROPIC_API_KEY      enables the Claude Models
 //   GEMINI_API_KEY         enables the Gemini Models
 //   CF_ACCOUNT_ID, CF_API_TOKEN   enable the Workers AI Models (token needs "Workers AI: Read")
@@ -20,6 +21,7 @@ import worker from "../src/worker.js";
 
 const PUBLIC_DIR = fileURLToPath(new URL("../public/", import.meta.url));
 const PORT = Number(process.env.PORT) || 8787;
+const HOST = process.env.HOST || undefined;
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".json": "application/json", ".txt": "text/plain; charset=utf-8" };
 
 const env = {
@@ -90,7 +92,7 @@ const server = http.createServer(async (req, res) => {
   body.pipe(res);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   const models = [env.ANTHROPIC_API_KEY && "Claude", env.GEMINI_API_KEY && "Gemini", env.AI && "Workers AI", env.MOCK_AI && "mock"].filter(Boolean).join(" + ") || "none (set ANTHROPIC_API_KEY, GEMINI_API_KEY and/or CF_ACCOUNT_ID + CF_API_TOKEN)";
-  console.log(`skills on http://localhost:${PORT} · models: ${models}`);
+  console.log(`skills on http://${HOST || "localhost"}:${PORT} · models: ${models}`);
 });

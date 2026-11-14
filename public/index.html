@@ -680,7 +680,7 @@ async function runTurn(s) {
   };
 
   try {
-    const res = await fetch("/api/turn", {
+    const res = await fetch("api/turn", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ command: s.command, messages: s.messages, model: s.model || undefined }),
@@ -865,7 +865,7 @@ els.modelPick.onchange = () => {
 // ---------- boot ----------
 (async function boot() {
   try {
-    const r = await fetch("/api/commands");
+    const r = await fetch("api/commands");
     const j = await r.json();
     state.commands = j.commands; state.turnCap = j.turnCap || TURN_CAP_DEFAULT;
     state.models = j.models || [];

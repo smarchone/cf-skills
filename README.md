@@ -69,6 +69,7 @@ idle times, otherwise replies arrive all at once or get cut off.
 | `GEMINI_API_KEY` | Enables the Gemini Models (`GEMINI_BASE_URL` optionally overrides the API host) |
 | `CF_ACCOUNT_ID`, `CF_API_TOKEN` | Optional. Enable the Workers AI Models through Cloudflare's REST API (token needs "Workers AI: Read"); still the free daily allowance |
 | `PORT` | Default `8787` |
+| `HOST` | Default: all interfaces. Set `127.0.0.1` when nginx/Caddy fronts it, so the port isn't reachable directly |
 | `MOCK_AI=1` | Fake streamed replies for every Model |
 
 ## How it works
