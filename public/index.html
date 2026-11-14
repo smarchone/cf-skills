@@ -161,13 +161,12 @@ svg { display: block; flex: none; }
 .start .composer { box-shadow: var(--shadow); }
 .composer textarea { display: block; width: 100%; resize: none; border: 0; outline: none; background: transparent; padding: 9px 6px 6px; min-height: 24px; max-height: 40vh; overflow-y: auto; line-height: 1.5; color: var(--ink); font-size: 15px; }
 .start .composer textarea { font-size: 15.5px; padding-top: 11px; }
-@supports (field-sizing: content) { .composer textarea { } }
-.start .chip { top: 10px; }
+@supports (field-sizing: content) { .composer textarea { field-sizing: content; } }
 .composer textarea::placeholder { color: var(--ink-3); }
 .composer-bar { display: flex; align-items: center; gap: 8px; min-height: 30px; padding-left: 4px; }
 .field { position: relative; }
-/* The chosen command sits at the start of the text, like the first word; text flows after it. */
-.chip { position: absolute; left: 6px; top: 8px; z-index: 1; display: none; align-items: center; gap: 2px; font-family: var(--mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 3px 2px 8px; line-height: 20px; }
+/* The chosen command sits as a pill above the text so wrapped lines never collide with it. */
+.chip { display: none; align-items: center; gap: 2px; margin: 6px 6px 0; font-family: var(--mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 3px 2px 8px; line-height: 20px; }
 .chip.on { display: inline-flex; }
 .chip button { border: 0; background: none; color: var(--accent); opacity: .6; cursor: pointer; width: 18px; height: 18px; border-radius: 4px; line-height: 1; font-size: 14px; padding: 0; }
 .chip button:hover { opacity: 1; background: rgba(170,180,255,.12); }
@@ -514,7 +513,6 @@ function renderComposer(s) {
 
   els.chip.classList.toggle("on", !s && !!state.pendingCommand);
   els.chipName.textContent = state.pendingCommand ? "/" + state.pendingCommand : "";
-  els.input.style.textIndent = els.chip.classList.contains("on") ? (els.chip.offsetWidth + 6) + "px" : "";
   els.input.disabled = state.streaming;
   if (s) els.input.placeholder = state.streaming ? `/${s.command} is answering` : `Reply to /${s.command}`;
   else if (state.pendingCommand) els.input.placeholder = cmdInfo(state.pendingCommand)?.hint || "Your idea or question";
