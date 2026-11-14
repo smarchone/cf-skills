@@ -814,8 +814,13 @@ addEventListener("resize", autosize);
 els.copy.onclick = copyMarkdown;
 $("home").onclick = (e) => { e.preventDefault(); newSession(); };
 
-// ---------- model picker: Claude models and free Workers AI models, picked before a Session starts ----------
-const KIND_LABEL = { claude: "Claude", "workers-ai": "Workers AI · free" };
+// ---------- model picker: Claude, Gemini and free Workers AI models, picked before a Session starts ----------
+const KIND_LABEL = { claude: "Claude", gemini: "Gemini", "workers-ai": "Workers AI · free" };
+const KIND_INFO = {
+  claude: { via: "the Anthropic API", credits: "· on the owner's Claude credits", name: "Claude" },
+  gemini: { via: "the Gemini API", credits: "· on the owner's Gemini credits", name: "Gemini" },
+  "workers-ai": { via: "Cloudflare Workers AI", credits: "· free Cloudflare credits", name: "Workers AI" },
+};
 function renderModelPick() {
   const pick = els.modelPick;
   const s = current();
@@ -839,14 +844,16 @@ function renderModelPick() {
   pick.style.width = `${probe.offsetWidth + 34}px`; // + padding, border and chevron
   probe.remove();
   const info = modelInfo(shown);
-  const claude = info?.kind === "claude";
+  const kind = KIND_INFO[info?.kind] ? info.kind : "workers-ai";
+  const k = KIND_INFO[kind];
   pick.title = s
     ? `This session runs on ${info?.label || shown}. Start a new session to switch models.`
-    : `${shown} via ${claude ? "the Anthropic API" : "Cloudflare Workers AI"}. The model is fixed once the session starts.`;
-  els.metaRight.querySelector(".free").textContent = !state.models.length ? "" : claude ? "· on the owner's Claude credits" : "· free Cloudflare credits";
-  els.metaRight.title = claude
-    ? `Claude runs on a small credit balance the owner pays for. When it's used up, ${state.models.some((m) => m.kind === "workers-ai") ? "start a new session on a Workers AI model or " : ""}come back later.`
-    : "Runs on Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow.";
+    : `${shown} via ${k.via}. The model is fixed once the session starts.`;
+  els.metaRight.querySelector(".free").textContent = !state.models.length ? "" : k.credits;
+  const others = Object.keys(KIND_INFO).filter((x) => x !== kind && state.models.some((m) => m.kind === x)).map((x) => KIND_INFO[x].name);
+  els.metaRight.title = kind === "workers-ai"
+    ? "Runs on Cloudflare Workers AI's free daily allowance. When it's used up, come back tomorrow."
+    : `${k.name} runs on a small credit balance the owner pays for. When it's used up, ${others.length ? `start a new session on a ${others.join(" or ")} model or ` : ""}come back later.`;
 }
 els.modelPick.onchange = () => {
   if (current()) return;

@@ -4,12 +4,12 @@
   "main": "src/worker.js",
   "compatibility_date": "2025-10-01",
   "workers_dev": true,
-  // Workers AI: the free Models (daily allowance). Claude Models use the ANTHROPIC_API_KEY secret instead.
+  // Workers AI: the free Models (daily allowance). Claude / Gemini Models use the ANTHROPIC_API_KEY / GEMINI_API_KEY secrets instead.
   "ai": { "binding": "AI" },
   // One static page; the Worker only runs for /api/*.
   "assets": { "directory": "./public", "run_worker_first": ["/api/*"] },
   // Commands are plain markdown prompts, bundled as text.
   "rules": [{ "type": "Text", "globs": ["**/*.md"], "fallthrough": true }],
-  // `npm run dev:mock`: no AI binding or Anthropic key, a fake streamed reply for every Model (works without a Cloudflare login).
+  // `npm run dev:mock`: no AI binding, Anthropic or Gemini key, a fake streamed reply for every Model (works without a Cloudflare login).
   "env": { "mock": { "vars": { "MOCK_AI": "1" } } }
 }

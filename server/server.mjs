@@ -8,6 +8,7 @@
 // Env (from the process, or a .env file via `npm start`):
 //   PORT                   default 8787
 //   ANTHROPIC_API_KEY      enables the Claude Models
+//   GEMINI_API_KEY         enables the Gemini Models
 //   CF_ACCOUNT_ID, CF_API_TOKEN   enable the Workers AI Models (token needs "Workers AI: Read")
 //   MOCK_AI=1              fake streamed replies for every Model, no keys needed
 import http from "node:http";
@@ -24,6 +25,8 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
 const env = {
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
   MOCK_AI: process.env.MOCK_AI,
   AI: process.env.CF_ACCOUNT_ID && process.env.CF_API_TOKEN ? workersAiRest(process.env.CF_ACCOUNT_ID, process.env.CF_API_TOKEN) : undefined,
 };
@@ -88,6 +91,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  const models = [env.ANTHROPIC_API_KEY && "Claude", env.AI && "Workers AI", env.MOCK_AI && "mock"].filter(Boolean).join(" + ") || "none (set ANTHROPIC_API_KEY and/or CF_ACCOUNT_ID + CF_API_TOKEN)";
+  const models = [env.ANTHROPIC_API_KEY && "Claude", env.GEMINI_API_KEY && "Gemini", env.AI && "Workers AI", env.MOCK_AI && "mock"].filter(Boolean).join(" + ") || "none (set ANTHROPIC_API_KEY, GEMINI_API_KEY and/or CF_ACCOUNT_ID + CF_API_TOKEN)";
   console.log(`skills on http://localhost:${PORT} · models: ${models}`);
 });
