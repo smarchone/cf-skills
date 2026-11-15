@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>smarchone: skills</title>
 <meta name="description" content="Run smarchone/skills commands in the browser.">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-M8XQCKQVGM"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-M8XQCKQVGM');
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23131419'/><rect x='.75' y='.75' width='30.5' height='30.5' rx='7.25' fill='none' stroke='%2323262e' stroke-width='1.5'/><path d='M19.5 7 12.5 25' stroke='%23aab4ff' stroke-width='3.2' stroke-linecap='round'/></svg>">
 <style>
 :root {
@@ -514,9 +522,13 @@ function renderExamples() {
   for (const [c, text] of EXAMPLES.filter(([c]) => cmdInfo(c))) {
     const b = el("button", "ex");
     b.append(el("span", "c", "/" + c), el("span", "t", text), el("span", "go", "→"));
-    b.onclick = () => { state.pendingCommand = c; els.input.value = text; renderComposer(null); autosize(); els.input.focus(); };
+    b.onclick = () => { state.pendingCommand = c; trackSkill(c); els.input.value = text; renderComposer(null); autosize(); els.input.focus(); };
     els.examples.appendChild(b);
   }
+}
+
+function trackSkill(skill) {
+  if (typeof gtag === "function") gtag("event", "skill_selected", { skill });
 }
 
 function renderComposer(s) {
@@ -606,6 +618,7 @@ function chooseCommand(name) {
   if (current()) { state.currentId = null; save(); }
   state.notice = null;
   state.pendingCommand = name;
+  trackSkill(name);
   const parsed = parseSlash(els.input.value);
   els.input.value = parsed ? parsed.rest : (els.input.value.startsWith("/") ? "" : els.input.value);
   closePopover(); render(); els.input.focus(); autosize();
@@ -645,7 +658,7 @@ function submit() {
   let text = els.input.value.trim();
   if (!s) {
     let command = state.pendingCommand;
-    if (!command) { const p = parseSlash(text); command = p.name; text = p.rest.trim(); }
+    if (!command) { const p = parseSlash(text); command = p.name; text = p.rest.trim(); trackSkill(command); }
     if (!text) return;
     s = { id: newId(), command, model: state.model, title: text.split("\n")[0].slice(0, 80), messages: [], createdAt: Date.now(), updatedAt: Date.now() };
     state.sessions.push(s);

@@ -1,6 +1,5 @@
 // Commands: synced from github.com/smarchone/skills/commands/{productivity,systems} via `npm run sync:commands`.
 import chatxy from "../commands/productivity/chatxy.md";
-import dotsEngg from "../commands/productivity/dots-engg.md";
 import feel from "../commands/productivity/feel.md";
 import fewShot from "../commands/productivity/few-shot.md";
 import intuition from "../commands/productivity/intuition.md";
@@ -16,7 +15,6 @@ const FOLDER = { "origin-story": "systems" };
 
 const RAW = {
   chatxy,
-  "dots-engg": dotsEngg,
   feel,
   "few-shot": fewShot,
   intuition,
@@ -30,7 +28,6 @@ const RAW = {
 // Composer placeholder per Command (the repo's argument-hint assumes a local agent that can read files/URLs).
 const HINTS = {
   chatxy: "Who X is · the topic · the setting (interview, 1:1, mentoring…)",
-  "dots-engg": "A topic or 'new' to generate a 5-minute engineering scenario",
   feel: "A system, scale jump (e.g. 100 → 10K RPS), or operation",
   "few-shot": "A concept, tool or system to learn",
   intuition: "A concept, paper, or pasted text to build deep intuition on",
