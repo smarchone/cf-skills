@@ -2,7 +2,7 @@
 
 A browser chat that runs the productivity **Commands** from
 [smarchone/skills](https://github.com/smarchone/skills): type `/feel <your idea>`, have a short streamed
-conversation (up to 7 turns), and copy the conclusion as markdown.
+conversation (up to 11 turns), and copy the conclusion as markdown.
 
 It runs on **Cloudflare** (Workers free plan) or on **any server with Node 22+**. Both run the same
 stateless Worker; sessions live only in the visitor's browser (`localStorage`).
@@ -76,7 +76,7 @@ idle times, otherwise replies arrive all at once or get cut off.
 
 ```
  browser (localStorage)                       Worker (stateless)
- Session: Command + Model (locked), turn n/7  ── POST /api/turn {command, model, messages} ──▶
+ Session: Command + Model (locked), turn n/11  ── POST /api/turn {command, model, messages} ──▶
                                               system = Command body + Turn cap note
                                               refuse turn > 7
                                               Model seam ─┬─ Claude (Anthropic Messages API)
@@ -86,7 +86,7 @@ idle times, otherwise replies arrive all at once or get cut off.
 
 - `public/index.html` — the whole UI (one static page): `/` command picker, model dropdown, sessions sidebar, copy as markdown.
 - `src/worker.js` — the Worker. `GET /api/commands` (commands, models, turn cap), `POST /api/turn` (→ SSE).
-  Builds the system prompt (cached on Claude, since every Turn resends it), enforces the 7-turn cap, and streams
+  Builds the system prompt (cached on Claude, since every Turn resends it), enforces the 11-turn cap, and streams
   every Model's reply in the same shape. Models are listed in `CLAUDE_MODELS` and `MODELS`.
 - `src/commands.js` + `commands/*.md` — the Commands (chatxy, few-shot, intuition-panel, origin-story,
   report-panel), copied from the skills repo. They run as pure inference: the Worker never fetches, so
