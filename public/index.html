@@ -203,11 +203,11 @@ svg { display: block; flex: none; }
 .menu-empty { padding: 7px 9px; font-size: 13px; color: var(--ink-3); }
 
 /* ---------- Footer ---------- */
-.foot { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; color: var(--ink-3); padding: 10px 0 2px; }
+.foot { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; color: var(--ink-3); padding: 16px 0 2px; }
 .foot a { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; color: var(--ink-2); }
 .foot a:hover { color: var(--accent); }
 .foot .heart { color: var(--heart); }
-.start .foot { margin-top: 18px; }
+.start .foot { margin-top: 34px; }
 
 #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 14px; transition: .2s; z-index: 60; }
 #toast.show { opacity: 1; transform: translateX(-50%); }
@@ -262,7 +262,8 @@ svg { display: block; flex: none; }
         <div id="startSlot"></div>
         <div class="ex-head">Try</div>
         <div class="ex-list" id="examples"></div>
-        <div class="foot">Free tier includes gpt-oss 120B · please be mindful of token usage 🙏 · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
+        <div class="foot" style="padding-bottom:0">Free tier includes gpt-oss 120B · please be mindful of token usage 🙏</div>
+        <div class="foot" style="padding-top:0;margin-top:0">Made with <span class="heart" aria-label="love">♥</span> · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
       </div>
       <div class="transcript" id="thread" hidden></div>
     </div>
@@ -270,7 +271,8 @@ svg { display: block; flex: none; }
       <div class="dock-inner">
         <div id="dockSlot"></div>
       </div>
-      <div class="foot">Free tier includes gpt-oss 120B · please be mindful of token usage 🙏 · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
+      <div class="foot" style="padding-bottom:0">Free tier includes gpt-oss 120B · please be mindful of token usage 🙏</div>
+      <div class="foot" style="padding-top:0;margin-top:0">Made with <span class="heart" aria-label="love">♥</span> · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
     </div>
   </section>
 </div>
