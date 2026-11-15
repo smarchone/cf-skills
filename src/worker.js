@@ -73,7 +73,7 @@ const modelList = (env) => Object.entries(MODELS)
   .filter(([, p]) => ready(env, kindOf(p)))
   .map(([id, p]) => ({ id, label: p.label, kind: kindOf(p), inlineThinking: !!p.inlineThinking, verified: !!p.verified }));
 const defaultModel = (env) => (geminiReady(env) ? DEFAULT_GEMINI_MODEL : workersAiReady(env) ? DEFAULT_WORKERS_AI_MODEL : DEFAULT_CLAUDE_MODEL);
-const TURN_CAP = 11;
+const TURN_CAP = 15;
 const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
 const SSE_HEADERS = {
