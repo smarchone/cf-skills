@@ -59,3 +59,7 @@ Why: adding simple claude api
 - business.md: promoted beyond friends; Claude is the one paid service, capped by a low credit balance; open endpoint is now the top risk
 - product.md: dropdown offers Claude (default Haiku 5.5, assumed) and Workers AI, locked per Session; header shows the model
 - model.md: new Model term behind one Worker seam; Budget is per Model kind with distinct out messages
+
+## M3 · we have done some offline development. get context. · killed 2026-11-15
+
+Why: cool idea but not economical.
