@@ -258,11 +258,11 @@ svg { display: block; flex: none; }
     <div class="body" id="scroll">
       <div class="start" id="start">
         <h2>Try <a class="gh-h" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="smarchone/skills on GitHub"><svg width="26" height="26" aria-hidden="true"><use href="#gh"/></svg>@smarchone</a> skills</h2>
-        <p>Type <kbd>/</kbd> to pick a command. Seven turns, then it concludes.</p>
+        <p>Type <kbd>/</kbd> to pick a command. Eleven turns, then it concludes.</p>
         <div id="startSlot"></div>
         <div class="ex-head">Try</div>
         <div class="ex-list" id="examples"></div>
-        <div class="foot">Made with <span class="heart" aria-label="love">♥</span> · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
+        <div class="foot">Free tier includes gpt-oss 120B · please be mindful of token usage 🙏 · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
       </div>
       <div class="transcript" id="thread" hidden></div>
     </div>
@@ -270,7 +270,7 @@ svg { display: block; flex: none; }
       <div class="dock-inner">
         <div id="dockSlot"></div>
       </div>
-      <div class="foot">Made with <span class="heart" aria-label="love">♥</span> · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
+      <div class="foot">Free tier includes gpt-oss 120B · please be mindful of token usage 🙏 · <a href="https://github.com/smarchone/skills" target="_blank" rel="noopener"><svg width="13" height="13"><use href="#gh"/></svg>smarchone/skills</a></div>
     </div>
   </section>
 </div>
@@ -825,11 +825,11 @@ els.copy.onclick = copyMarkdown;
 $("home").onclick = (e) => { e.preventDefault(); newSession(); };
 
 // ---------- model picker: Claude, Gemini and free Workers AI models, picked before a Session starts ----------
-const KIND_LABEL = { claude: "Claude", gemini: "Gemini", "workers-ai": "Workers AI · free" };
+const KIND_LABEL = { claude: "Claude · paid 😅", gemini: "Gemini · paid 😅", "workers-ai": "Workers AI · free" };
 const KIND_INFO = {
-  claude: { via: "the Anthropic API", credits: "· on the owner's Claude credits", name: "Claude" },
-  gemini: { via: "the Gemini API", credits: "· on the owner's Gemini credits", name: "Gemini" },
-  "workers-ai": { via: "Cloudflare Workers AI", credits: "· free Cloudflare credits", name: "Workers AI" },
+  claude: { via: "the Anthropic API", credits: "· paid credits 😅 · mindful of tokens 🙏", name: "Claude" },
+  gemini: { via: "the Gemini API", credits: "· paid credits 😅 · mindful of tokens 🙏", name: "Gemini" },
+  "workers-ai": { via: "Cloudflare Workers AI", credits: "· free credits (try gpt-oss 120B)", name: "Workers AI" },
 };
 function renderModelPick() {
   const pick = els.modelPick;

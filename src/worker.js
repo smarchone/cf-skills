@@ -28,7 +28,7 @@ const CLAUDE_MODELS = {
 const GEMINI_MODELS = {
   "gemini-3.5-flash": { kind: "gemini", label: "Gemini 3.5 Flash", maxTokens: 16000, thinkingLevel: "low" },
   "gemini-3.1-pro-preview": { kind: "gemini", label: "Gemini 3.1 Pro", maxTokens: 16000, thinkingLevel: "low" },
-  "gemini-4-hydrogen": { kind: "gemini", label: "Gemini 4 Hydrogen", maxTokens: 16000, thinkingLevel: "low" },
+  "gemini-4-hydrogen": { kind: "gemini", label: "Gemini 4 Hydrogen", maxTokens: 16000, thinkingLevel: "low", verified: true },
 };
 const MODELS = {
   ...CLAUDE_MODELS,
@@ -48,9 +48,9 @@ const MODELS = {
   "@cf/utter-project/eurollm-9b-it": { label: "EuroLLM 9B", instructions: "system", maxTokens: 4096, inlineThinking: false },
   "@cf/swiss-ai/apertus-v1.5-8b": { label: "Apertus 1.5 8B", instructions: "system", maxTokens: 4096, inlineThinking: false },
 };
-const DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5"; // when Claude is configured
-const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"; // else when Gemini is configured
-const DEFAULT_WORKERS_AI_MODEL = "@cf/zai-org/glm-4.7-flash"; // otherwise
+const DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5";
+const DEFAULT_GEMINI_MODEL = "gemini-4-hydrogen"; // when Gemini is configured
+const DEFAULT_WORKERS_AI_MODEL = "@cf/openai/gpt-oss-120b"; // else when Workers AI is configured
 for (const id of [DEFAULT_CLAUDE_MODEL, DEFAULT_GEMINI_MODEL, DEFAULT_WORKERS_AI_MODEL]) if (!MODELS[id]) throw new Error(`No MODELS entry for ${id}`);
 const kindOf = (profile) => profile.kind || "workers-ai";
 // Claude / Gemini need the owner's key (or the local mock); without them only Workers AI is offered.
@@ -72,7 +72,7 @@ const otherKinds = (env, kind) => {
 const modelList = (env) => Object.entries(MODELS)
   .filter(([, p]) => ready(env, kindOf(p)))
   .map(([id, p]) => ({ id, label: p.label, kind: kindOf(p), inlineThinking: !!p.inlineThinking, verified: !!p.verified }));
-const defaultModel = (env) => (claudeReady(env) ? DEFAULT_CLAUDE_MODEL : geminiReady(env) ? DEFAULT_GEMINI_MODEL : DEFAULT_WORKERS_AI_MODEL);
+const defaultModel = (env) => (geminiReady(env) ? DEFAULT_GEMINI_MODEL : workersAiReady(env) ? DEFAULT_WORKERS_AI_MODEL : DEFAULT_CLAUDE_MODEL);
 const TURN_CAP = 11;
 const MAX_MESSAGE_CHARS = 40000; // room for a pasted transcript (report-panel)
 
