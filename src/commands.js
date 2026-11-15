@@ -1,10 +1,14 @@
-// Commands: prompts copied from github.com/smarchone/skills/commands/{productivity,systems}.
-// The ones showcased here run as pure inference — no scripts, files or fetching.
-import chatxy from "../commands/chatxy.md";
-import fewShot from "../commands/few-shot.md";
-import intuitionPanel from "../commands/intuition-panel.md";
-import originStory from "../commands/origin-story.md";
-import reportPanel from "../commands/report-panel.md";
+// Commands: synced from github.com/smarchone/skills/commands/{productivity,systems} via `npm run sync:commands`.
+import chatxy from "../commands/productivity/chatxy.md";
+import dotsEngg from "../commands/productivity/dots-engg.md";
+import feel from "../commands/productivity/feel.md";
+import fewShot from "../commands/productivity/few-shot.md";
+import intuition from "../commands/productivity/intuition.md";
+import intuitionPanel from "../commands/productivity/intuition-panel.md";
+import nailOnTheHead from "../commands/productivity/nail-on-the-head.md";
+import originStory from "../commands/systems/origin-story.md";
+import productPanel from "../commands/productivity/product-panel.md";
+import reportPanel from "../commands/productivity/report-panel.md";
 
 const SOURCE_BASE = "https://github.com/smarchone/skills/blob/main/commands/";
 // Folder each Command lives in, in the skills repo.
@@ -12,18 +16,28 @@ const FOLDER = { "origin-story": "systems" };
 
 const RAW = {
   chatxy,
+  "dots-engg": dotsEngg,
+  feel,
   "few-shot": fewShot,
+  intuition,
   "intuition-panel": intuitionPanel,
+  "nail-on-the-head": nailOnTheHead,
   "origin-story": originStory,
+  "product-panel": productPanel,
   "report-panel": reportPanel,
 };
 
 // Composer placeholder per Command (the repo's argument-hint assumes a local agent that can read files/URLs).
 const HINTS = {
   chatxy: "Who X is · the topic · the setting (interview, 1:1, mentoring…)",
+  "dots-engg": "A topic or 'new' to generate a 5-minute engineering scenario",
+  feel: "A system, scale jump (e.g. 100 → 10K RPS), or operation",
   "few-shot": "A concept, tool or system to learn",
+  intuition: "A concept, paper, or pasted text to build deep intuition on",
   "intuition-panel": "A product idea or topic, in a sentence or two",
+  "nail-on-the-head": "Two or more concepts to compare (e.g. X vs Y)",
   "origin-story": "A technology, company or idea",
+  "product-panel": "A product, startup, or feature idea to pressure-test",
   "report-panel": "A topic or launch — or paste a transcript or article — and who it's for",
 };
 

@@ -310,6 +310,8 @@ const EXAMPLES = [
   ["few-shot", "Durable Objects in Cloudflare"],
   ["chatxy", "Steve Jobs on 'how to work with llms and agents and build agentic experiences' . I'm an young entrepreneur"],
   ["report-panel", "token economics : Subscription vs API pricing models for LLM usage"],
+  ["dots-engg", "new"],
+  ["nail-on-the-head", "Cloudflare Workers vs AWS Lambda"],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -462,7 +464,7 @@ function voiceColor(who) {
 }
 
 // Commands whose replies speak as several roles; every other command replies as a single report.
-const MULTI_VOICE = new Set(["intuition-panel"]);
+const MULTI_VOICE = new Set(["intuition-panel", "chatxy", "product-panel"]);
 
 // Fill a reply body: plain markdown, or (multi-role commands only) one block per speaker with the name in the margin.
 function paintReply(body, text, command) {

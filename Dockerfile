@@ -4,7 +4,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY src ./src
-COPY commands ./commands
+RUN npm run sync:commands
 COPY public ./public
 COPY server ./server
 ENV PORT=8787

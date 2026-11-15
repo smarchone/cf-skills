@@ -3,11 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm run sync:commands",
     "dev": "wrangler dev",
+    "predev:mock": "npm run sync:commands",
     "dev:mock": "wrangler dev --env mock",
+    "predeploy": "npm run sync:commands",
     "deploy": "wrangler deploy",
+    "prestart": "npm run sync:commands",
     "start": "node --env-file-if-exists=.env --import ./server/md-text.mjs server/server.mjs",
-    "start:mock": "MOCK_AI=1 node --import ./server/md-text.mjs server/server.mjs"
+    "prestart:mock": "npm run sync:commands",
+    "start:mock": "MOCK_AI=1 node --import ./server/md-text.mjs server/server.mjs",
+    "sync:commands": "npx --yes degit smarchone/skills/commands commands --force"
   },
   "devDependencies": {
     "wrangler": "^4.40.0"
