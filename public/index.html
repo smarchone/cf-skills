@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>smarchone: skills</title>
-<meta name="description" content="Run smarchone/skills commands in the browser.">
+<meta name="description" content="Mine golden conversations from AI — run smarchone/skills commands in the browser.">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-M8XQCKQVGM"></script>
 <script>
@@ -104,6 +104,8 @@ svg { display: block; flex: none; }
 .start h2 .gh-h svg { flex: none; position: relative; top: 1px; }
 .start h2 .gh-h:hover { color: var(--accent); }
 .start p { margin: -8px 0 0; color: var(--ink-2); }
+.start .gold-link { color: #f6e286; background: rgb(246 226 134 / .11); font-weight: 500; text-decoration: none; padding: 1px 6px; border-radius: 5px; transition: color .15s, background .15s; }
+.start .gold-link:hover { color: #fff1aa; background: rgb(246 226 134 / .20); }
 .start kbd { font-family: var(--mono); font-size: 12.5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; background: var(--panel); color: var(--ink); }
 .ex-head { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); margin: 10px 0 -8px; }
 .ex-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -299,7 +301,7 @@ svg { display: block; flex: none; }
     <div class="body" id="scroll">
       <div class="start" id="start">
         <h2>Try <a class="gh-h" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="smarchone/skills on GitHub"><svg width="26" height="26" aria-hidden="true"><use href="#gh"/></svg>@smarchone</a> skills</h2>
-        <p>Type <kbd>/</kbd> to pick a command. Fifteen turns, then it concludes.</p>
+        <p>Mine <a class="gold-link" href="https://smarchone.github.io/golden-convo/" target="_blank" rel="noopener" title="Conversations mined by me">golden conversations</a> from AI. Type <kbd>/</kbd> to pick a command.</p>
         <div id="startSlot"></div>
         <div class="ex-head">Try</div>
         <div class="ex-list" id="examples"></div>
