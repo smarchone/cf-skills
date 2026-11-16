@@ -222,24 +222,48 @@ svg { display: block; flex: none; }
 #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none; background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 14px; transition: .2s; z-index: 60; }
 #toast.show { opacity: 1; transform: translateX(-50%); }
 
+.menu-toggle { display: none; }
+.side-backdrop { display: none; }
+
 @media (max-width: 1280px) {
   .dock-foot { position: static; margin-top: 4px; }
 }
 @media (max-width: 820px) {
-  .app-head { padding: 10px 12px; gap: 6px; }
+  .menu-toggle { display: inline-flex; padding: 5px 7px; }
+  .app-head { padding: 6px 10px; gap: 6px; min-height: 46px; }
   .app-head .btn.sm { padding: 4px 8px; font-size: 12px; }
   .home { width: auto; padding-left: 0; margin-right: 0; font-size: 14px; }
-  .crumbs, .gh-label, .banner .note { display: none; }
+  .crumbs, .gh-label, .banner .note, .copy-long { display: none; }
+  body.in-chat .home, body.in-chat .gh-btn, body.in-chat .rail { display: none; }
+  body.in-chat .crumbs { display: flex; }
+  body.in-chat .crumb-model { display: none; }
   .banner { flex-wrap: wrap; padding: 8px 8px 8px 14px; }
-  .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .side { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px 12px; overflow-x: auto; gap: 4px; }
-  .side .group-label, .side-sep, .side-empty { display: none; }
-  .sess { flex: none; width: auto; max-width: 200px; }
-  .sess .del { display: none; }
-  .transcript { --gutter: 0px; padding: 8px 16px 24px; }
+  .layout { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .side {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(280px, 82vw); z-index: 50;
+    background: var(--bg); border-right: 1px solid var(--line);
+    padding: 16px 12px calc(16px + env(safe-area-inset-bottom));
+    transform: translateX(-100%); transition: transform .2s ease;
+    box-shadow: var(--pop-shadow);
+  }
+  body.side-open .side { transform: translateX(0); }
+  body.side-open .side-backdrop { display: block; position: fixed; inset: 0; z-index: 45; background: rgb(0 0 0 / .55); }
+  .sess .del { opacity: .65; }
+  .transcript { --gutter: 0px; padding: 4px 14px 16px; }
+  .turn { padding: 11px 0; }
   .turn .who, .voice .chip-v { position: static; width: auto; margin-bottom: 4px; }
   .composer textarea, .start .composer textarea { font-size: 16px; }
-  .dock { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  .dock { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }
+  .dock-inner { gap: 4px; }
+  .dock .composer { flex-direction: row; align-items: flex-end; gap: 6px; padding: 5px 6px 5px 10px; }
+  .dock .composer .field { flex: 1; min-width: 0; }
+  .dock .composer textarea { padding: 5px 2px; max-height: 30vh; }
+  .dock .composer-bar { min-height: 0; padding-left: 0; }
+  .dock .composer-bar .grow { display: none; }
+  .dock .dock-meta { min-height: 0; }
+  .dock #metaRight { display: none; }
+  .dock-foot { display: none; }
   .dock-meta, .start-meta { flex-wrap: wrap; gap: 4px 10px; }
   #hint:not(.warn) { display: none; }
   #hint.warn { width: 100%; }
@@ -257,15 +281,19 @@ svg { display: block; flex: none; }
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="gh" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol></svg>
 
 <header class="app-head">
+  <button class="btn ghost sm menu-toggle" id="sideToggle" type="button" aria-label="Sessions" aria-expanded="false">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg>
+  </button>
   <a class="home" href="#" id="home" title="Start a new session"><span>smarchone<span class="dim">:</span> skills</span></a>
   <span class="crumbs" id="crumbs"></span>
   <span class="grow"></span>
   <span class="rail" id="rail"></span>
-  <button class="btn ghost sm" id="copyBtn" hidden>Copy markdown</button>
-  <a class="btn sm" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="The commands on GitHub"><svg width="15" height="15"><use href="#gh"/></svg><span class="gh-label">smarchone/skills</span></a>
+  <button class="btn ghost sm" id="copyBtn" hidden>Copy<span class="copy-long"> markdown</span></button>
+  <a class="btn sm gh-btn" href="https://github.com/smarchone/skills" target="_blank" rel="noopener" title="The commands on GitHub"><svg width="15" height="15"><use href="#gh"/></svg><span class="gh-label">smarchone/skills</span></a>
 </header>
 
 <div class="layout">
+  <div class="side-backdrop" id="sideBackdrop"></div>
   <nav class="side" id="side"></nav>
   <section class="pane">
     <div class="body" id="scroll">
@@ -331,6 +359,7 @@ const EXAMPLES = [
 const $ = (id) => document.getElementById(id);
 const els = {
   scroll: $("scroll"), start: $("start"), thread: $("thread"), dock: $("dock"), side: $("side"),
+  sideToggle: $("sideToggle"), sideBackdrop: $("sideBackdrop"),
   startSlot: $("startSlot"), dockSlot: $("dockSlot"), host: $("composerHost"),
   input: $("input"), chip: $("chip"), chipName: $("chipName"), send: $("sendBtn"), popover: $("popover"),
   hint: $("hint"), metaRight: $("metaRight"), modelPick: $("modelPick"), crumbs: $("crumbs"), rail: $("rail"), copy: $("copyBtn"), examples: $("examples"),
@@ -365,8 +394,14 @@ const md = (text) => DOMPurify.sanitize(marked.parse(text || ""));
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
 // ---------- render ----------
+function setSideOpen(open) {
+  document.body.classList.toggle("side-open", open);
+  els.sideToggle.setAttribute("aria-expanded", String(open));
+}
+
 function render() {
   const s = current();
+  document.body.classList.toggle("in-chat", !!s);
   els.start.hidden = !!s;
   els.thread.hidden = !s;
   els.dock.hidden = !s;
@@ -636,12 +671,14 @@ function syncPopover() {
 const newId = () => crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
 function newSession() {
   if (state.streaming) return;
+  setSideOpen(false);
   state.currentId = null; state.pendingCommand = null; state.notice = null;
   els.input.value = "";
   save(); render(); autosize(); els.input.focus();
 }
 function openSession(id) {
   if (state.streaming) return;
+  setSideOpen(false);
   state.currentId = id; state.pendingCommand = null; state.notice = null;
   els.input.value = "";
   save(); render(); autosize(); scrollToBottom();
@@ -843,6 +880,9 @@ $("chipClear").onclick = () => { state.pendingCommand = null; renderComposer(nul
 addEventListener("resize", autosize);
 els.copy.onclick = copyMarkdown;
 $("home").onclick = (e) => { e.preventDefault(); newSession(); };
+els.sideToggle.onclick = () => setSideOpen(!document.body.classList.contains("side-open"));
+els.sideBackdrop.onclick = () => setSideOpen(false);
+addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("side-open")) setSideOpen(false); });
 
 // ---------- model picker: Claude, Gemini and free Workers AI models, picked before a Session starts ----------
 const KIND_LABEL = { claude: "Claude · paid 😅", gemini: "Gemini · paid 😅", "workers-ai": "Workers AI · free" };
