@@ -126,6 +126,23 @@ async function turn(request, env) {
     return sseError("bad_request", `${KINDS[kind].name} isn't set up on this server.${alt ? ` Start a new session on ${alt}.` : ""}`, 400);
   }
 
+  const chatId = typeof payload.chatId === "string" ? payload.chatId.slice(0, 64) : undefined;
+  const visitorId = typeof payload.visitorId === "string" ? payload.visitorId.slice(0, 64) : undefined;
+  const ip = request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+
+  console.log(JSON.stringify({
+    event: "turn",
+    chatId,
+    visitorId,
+    ip,
+    country: request.cf?.country,
+    command: payload.command,
+    model,
+    kind,
+    turn: turnNo,
+    message: history[history.length - 1].content.slice(0, 500),
+  }));
+
   const instructions = systemPrompt(command, history[0].content, turnNo);
   let stream;
   try {

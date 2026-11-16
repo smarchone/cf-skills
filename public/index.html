@@ -346,6 +346,7 @@ const TURN_CAP_DEFAULT = 15;
 const STORE_KEY = "simple-skills.sessions";
 const CURRENT_KEY = "simple-skills.current";
 const MODEL_KEY = "simple-skills.model.v2"; // v2: Claude became the default, so earlier picks are reset once
+const VISITOR_KEY = "simple-skills.visitor";
 const GITHUB = "https://github.com/smarchone/skills";
 
 // Starting points for engineers: [command, text]. Clicking fills the composer; nothing is sent.
@@ -671,6 +672,16 @@ function syncPopover() {
 // crypto.randomUUID() exists only on secure origins (HTTPS / localhost); a self-hosted server on plain http
 // gets the getRandomValues fallback, which works everywhere.
 const newId = () => crypto.randomUUID?.() ?? Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+let memoryVisitorId;
+function getVisitorId() {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) { id = newId(); localStorage.setItem(VISITOR_KEY, id); }
+    return id;
+  } catch {
+    return (memoryVisitorId ||= newId());
+  }
+}
 function newSession() {
   if (state.streaming) return;
   setSideOpen(false);
@@ -752,7 +763,13 @@ async function runTurn(s) {
     const res = await fetch("api/turn", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ command: s.command, messages: s.messages, model: s.model || undefined }),
+      body: JSON.stringify({
+        command: s.command,
+        messages: s.messages,
+        model: s.model || undefined,
+        chatId: s.id,
+        visitorId: getVisitorId(),
+      }),
     });
     if (!res.body) throw new Error("No response body");
     const reader = res.body.getReader();

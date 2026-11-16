@@ -4,6 +4,7 @@
   "main": "src/worker.js",
   "compatibility_date": "2025-10-01",
   "workers_dev": true,
+  "observability": { "enabled": true },
   // Workers AI: the free Models (daily allowance). Claude / Gemini Models use the ANTHROPIC_API_KEY / GEMINI_API_KEY secrets instead.
   "ai": { "binding": "AI" },
   // One static page; the Worker only runs for /api/*.
