@@ -115,6 +115,36 @@ svg { display: block; flex: none; }
 .ex .c { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--accent); }
 .ex .go { color: var(--ink-3); opacity: 0; }
 .ex:hover .go { opacity: 1; }
+.ex-tip {
+  position: fixed; left: 0; top: 0; z-index: 55; pointer-events: none; visibility: hidden;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 7px 11px; border-radius: 8px;
+  background: rgba(24, 26, 32, .94); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #2c303a; box-shadow: var(--pop-shadow);
+  font-size: 12px; line-height: 1.45; color: var(--ink-2);
+  opacity: 0; transform: translateY(4px) scale(.98);
+  transition: opacity .14s ease, transform .16s cubic-bezier(.16, 1, .3, 1);
+}
+.ex-tip.below { transform: translateY(-4px) scale(.98); }
+.ex-tip.side-r { transform: translateX(-4px) scale(.98); }
+.ex-tip.on { opacity: 1; transform: translate(0) scale(1); visibility: visible; }
+.ex-tip::after {
+  content: ""; position: absolute; left: var(--ax, 24px); bottom: -5px;
+  width: 8px; height: 8px; transform: translateX(-50%) rotate(45deg);
+  background: rgba(24, 26, 32, .94); border-right: 1px solid #2c303a; border-bottom: 1px solid #2c303a;
+}
+.ex-tip.below::after {
+  bottom: auto; top: -5px;
+  border-right: 0; border-bottom: 0;
+  border-left: 1px solid #2c303a; border-top: 1px solid #2c303a;
+}
+.ex-tip.side-r::after {
+  bottom: auto; left: -5px; top: var(--ay, 50%); transform: translateY(-50%) rotate(45deg);
+  border-right: 0; border-top: 0;
+  border-left: 1px solid #2c303a; border-bottom: 1px solid #2c303a;
+}
+@media (prefers-reduced-motion: reduce) { .ex-tip { transition: none; transform: none; } }
+@media (hover: none) { .ex-tip { display: none; } }
 
 /* ---------- Transcript: minutes, not a chat ---------- */
 .transcript { --gutter: 106px; max-width: 760px; margin: 0 auto; padding: 8px 28px 24px; display: flex; flex-direction: column; }
@@ -344,6 +374,7 @@ svg { display: block; flex: none; }
   <div class="dock-meta" id="meta"><span id="hint"></span><span id="metaRight"><select id="modelPick" aria-label="Model" hidden></select><span class="free"></span></span></div>
 </div>
 <div id="toast" role="status"></div>
+<div class="ex-tip" id="exTip" role="tooltip"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
@@ -355,14 +386,14 @@ const MODEL_KEY = "simple-skills.model.v2"; // v2: Claude became the default, so
 const VISITOR_KEY = "simple-skills.visitor";
 const GITHUB = "https://github.com/smarchone/skills";
 
-// Starting points for engineers: [command, text]. Clicking fills the composer; nothing is sent.
+// Starting points for engineers: [command, text, tooltip]. Clicking fills the composer; nothing is sent.
 const EXAMPLES = [
-  ["intuition-panel", "I'm a curious senior engineer with adhd. can we build a lightweight dota2 game on web, while maintaining engagement ?"],
-  ["origin-story", "Cloudflare"],
-  ["few-shot", "Durable Objects in Cloudflare"],
-  ["chatxy", "Steve Jobs on 'how to work with llms and agents and build agentic experiences' . I'm an young entrepreneur"],
-  ["report-panel", "token economics : Subscription vs API pricing models for LLM usage"],
-  ["nail-on-the-head", "Cloudflare Workers vs AWS Lambda"],
+  ["intuition-panel", "I'm a curious senior engineer with adhd. can we build a lightweight dota2 game on web, while maintaining engagement ?", "Validate your idea with an expert panel of CEO, PM, and Architect."],
+  ["origin-story", "Cloudflare", "Explore the origin story of a technology, company, or idea."],
+  ["few-shot", "Durable Objects in Cloudflare", "Learn a concept or tool fast through worked examples."],
+  ["chatxy", "Steve Jobs on 'how to work with llms and agents and build agentic experiences' . I'm an young entrepreneur", "Simulate a realistic conversation with someone about any topic."],
+  ["report-panel", "token economics : Subscription vs API pricing models for LLM usage", "Break down a topic into CEO, PM, and Architect perspectives."],
+  ["nail-on-the-head", "Cloudflare Workers vs AWS Lambda", "Compare two concepts by finding their core structural difference."],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -371,7 +402,7 @@ const els = {
   sideToggle: $("sideToggle"), sideBackdrop: $("sideBackdrop"),
   startSlot: $("startSlot"), dockSlot: $("dockSlot"), host: $("composerHost"),
   input: $("input"), chip: $("chip"), chipName: $("chipName"), send: $("sendBtn"), popover: $("popover"),
-  hint: $("hint"), metaRight: $("metaRight"), modelPick: $("modelPick"), crumbs: $("crumbs"), rail: $("rail"), copy: $("copyBtn"), examples: $("examples"),
+  hint: $("hint"), metaRight: $("metaRight"), modelPick: $("modelPick"), crumbs: $("crumbs"), rail: $("rail"), copy: $("copyBtn"), examples: $("examples"), exTip: $("exTip"),
 };
 
 const state = {
@@ -578,12 +609,53 @@ function renderThread(s) {
   if (state.notice) els.thread.appendChild(el("div", "notice warn", state.notice));
 }
 
+function showExTip(btn, text) {
+  if (!text) return;
+  const tip = els.exTip;
+  tip.textContent = text;
+  tip.classList.remove("below", "side-r");
+  tip.style.left = "0px";
+  tip.style.top = "0px";
+  tip.style.maxWidth = "";
+  const r = btn.getBoundingClientRect();
+  const pad = 12;
+  const rightSpace = window.innerWidth - r.right - pad * 2;
+  if (rightSpace >= 180) {
+    tip.style.maxWidth = Math.min(280, rightSpace) + "px";
+    const h = tip.offsetHeight;
+    const top = Math.max(pad, Math.min(r.top + r.height / 2 - h / 2, window.innerHeight - h - pad));
+    tip.style.left = (r.right + 10) + "px";
+    tip.style.top = top + "px";
+    tip.style.setProperty("--ay", Math.max(12, Math.min(h - 12, r.top + r.height / 2 - top)) + "px");
+    tip.classList.add("side-r", "on");
+    return;
+  }
+  const cRect = btn.querySelector(".c").getBoundingClientRect();
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  const below = r.top < h + 18;
+  const left = Math.max(pad, Math.min(r.left, window.innerWidth - w - pad));
+  const top = below ? r.bottom + 8 : r.top - h - 8;
+  const anchorX = cRect.left + Math.min(cRect.width / 2, 40) - left;
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
+  tip.style.setProperty("--ax", Math.max(14, Math.min(w - 14, anchorX)) + "px");
+  tip.classList.toggle("below", below);
+  tip.classList.add("on");
+}
+const hideExTip = () => els.exTip.classList.remove("on");
+els.scroll.addEventListener("scroll", hideExTip, { passive: true });
+
 function renderExamples() {
   els.examples.innerHTML = "";
-  for (const [c, text] of EXAMPLES.filter(([c]) => cmdInfo(c))) {
+  for (const [c, text, tip] of EXAMPLES.filter(([c]) => cmdInfo(c))) {
+    const desc = tip || cmdInfo(c).description;
     const b = el("button", "ex");
     b.append(el("span", "c", "/" + c), el("span", "t", text), el("span", "go", "→"));
-    b.onclick = () => { state.pendingCommand = c; trackSkill(c); els.input.value = text; renderComposer(null); autosize(); els.input.focus(); };
+    b.onmouseenter = () => showExTip(b, desc);
+    b.onmouseleave = hideExTip;
+    b.onfocus = () => showExTip(b, desc);
+    b.onblur = hideExTip;
+    b.onclick = () => { hideExTip(); state.pendingCommand = c; trackSkill(c); els.input.value = text; renderComposer(null); autosize(); els.input.focus(); };
     els.examples.appendChild(b);
   }
 }
